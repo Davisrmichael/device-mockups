@@ -1,89 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Maker — iPhone (model‑viewer)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup Maker — iPhone (model-viewer)</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
   :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
-  *{ box-sizing:border-box }
-  html,body{ height:100% }
-  body{
-    margin:0;
-    font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    background:var(--bg);
-    color:var(--ink);
-    display:grid;
-    grid-template-columns:360px 1fr;
-    gap:16px;
-    padding:16px;
-  }
-  .panel{
-    background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    box-shadow:0 8px 24px rgba(0,0,0,.06);
-    padding:16px;
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-    height:calc(100vh - 32px);
-    position:sticky; top:16px;
-  }
-  h1{ font-size:18px; margin:0; display:flex; gap:8px; align-items:center }
-  .pill{ font-size:12px; background:#e0ecff; color:#2563eb; padding:4px 8px; border-radius:999px; font-weight:700 }
-  .section{ border-top:1px solid var(--line); padding-top:12px; margin-top:4px }
-  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
-  .btn{ appearance:none; border:none; border-radius:10px; padding:10px 12px; background:var(--btn); color:#fff; font-weight:700; cursor:pointer }
-  .btn.secondary{ background:#e5e7eb; color:#111827 }
-  .hint{ font-size:12px; color:var(--muted) }
-  select, input[type="range"]{ width:100% }
-  .stage-outer{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 8px 24px rgba(0,0,0,.06); padding:16px; display:flex; justify-content:center }
-  .stage{ width:720px; height:720px; border-radius:12px; overflow:hidden; position:relative; background:#e5e7eb; display:flex; align-items:center; justify-content:center }
-  model-viewer{ width:720px; height:720px; --poster-color: transparent; }
-  .toolbar{ display:flex; justify-content:space-between; align-items:center }
-  code.small{ font-size:11px }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
+       display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);
+         padding:16px;display:flex;flex-direction:column;gap:16px;height:calc(100vh - 32px);position:sticky;top:16px}
+  h1{font-size:18px;margin:0;display:flex;gap:8px;align-items:center}
+  .pill{font-size:12px;background:#e0ecff;color:#2563eb;padding:4px 8px;border-radius:999px;font-weight:700}
+  .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
+  .btn.secondary{background:#e5e7eb;color:#111827}
+  .hint{font-size:12px;color:var(--muted)}
+  select,input[type="range"]{width:100%}
+  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px;display:flex;justify-content:center}
+  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
+  model-viewer{width:720px;height:720px;--poster-color:transparent}
+  .toolbar{display:flex;justify-content:space-between;align-items:center}
+  code.small{font-size:11px}
 </style>
 </head>
 <body>
   <aside class="panel">
-    <h1>Mockup Maker <span class="pill">iPhone • model‑viewer</span></h1>
+    <h1>Mockup Maker <span class="pill">iPhone • model-viewer</span></h1>
 
     <div class="section">
       <div class="row"><strong>Device</strong></div>
-      <div class="row">
-        <select id="deviceSelect">
-          <option value="iphone" selected>iPhone 16 Pro Max</option>
-        </select>
+      <div class="hint">
+        Loads <code class="small">iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb</code> from this repo.
       </div>
-      <div class="hint">Loads <code class="small">iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb</code> from this repo.</div>
     </div>
 
     <div class="section">
       <div class="row"><strong>Screen Texture</strong></div>
       <div class="row">
         <select id="materialSelect"><option value="">— choose material —</option></select>
-        <button id="autoPick" class="btn secondary">Auto‑detect screen</button>
+        <button id="autoPick" class="btn secondary">Auto-detect screen</button>
       </div>
-      <div class="row">
-        <div class="hint">Texture target: <code id="texTarget" class="small">(looking for gltf_embedded_18)</code></div>
-      </div>
+      <div class="row"><div class="hint">Texture target: <code id="texTarget" class="small">(auto)</code></div></div>
       <div class="row">
         <button id="chooseImage" class="btn">Choose Image…</button>
-        <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Make it bright (emissive)</label>
-        <button id="bruteBtn" class="btn secondary">Force Apply</button>
+        <input id="imageInput" type="file" accept="image/*" style="display:none" />
+        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked /> Make it bright (emissive)</label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
       </div>
     </div>
 
     <div class="section">
       <div class="row"><strong>Orientation & Padding</strong></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="rxVal">0°</div></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-180" max="180" step="15" value="180"></div><div style="width:44px;text-align:right" id="ryVal">180°</div></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div><div style="width:64px;text-align:right" id="padVal">36px</div></div>
-      <div class="row"><button id="frontBtn" class="btn secondary">Front‑on</button><button id="tiltBtn" class="btn secondary">Tilted</button><button id="resetBtn" class="btn secondary">Reset</button></div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0" /></div>
+        <div style="width:44px;text-align:right" id="rxVal">0°</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0" /></div>
+        <div style="width:44px;text-align:right" id="ryVal">0°</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36" /></div>
+        <div style="width:64px;text-align:right" id="padVal">36px</div>
+      </div>
+      <div class="row">
+        <button id="frontBtn" class="btn secondary">Front-on</button>
+        <button id="tiltBtn" class="btn secondary">Tilted</button>
+        <button id="resetBtn" class="btn secondary">Reset</button>
+      </div>
     </div>
 
     <div class="section">
@@ -94,16 +82,11 @@
   </aside>
 
   <main>
-    <div class="toolbar">
-      <div class="hint">Preview (exact 720×720 export)</div>
-    </div>
-    <div class="stage-outer">
-      <div class="stage">
-        <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1.0" autoplay shadow-intensity="0" ar-modes=""
-          disable-tap interaction-prompt="none" tone-mapping="neutral">
-        </model-viewer>
-      </div>
-    </div>
+    <div class="toolbar"><div class="hint">Preview (exact 720×720 export)</div></div>
+    <div class="stage-outer"><div class="stage">
+      <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1" autoplay shadow-intensity="0"
+        ar-modes="" disable-tap interaction-prompt="none" tone-mapping="neutral"></model-viewer>
+    </div></div>
   </main>
 
 <script type="module">
@@ -113,38 +96,50 @@ const autoBtn = document.getElementById('autoPick');
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
 const emissiveOn = document.getElementById('emissiveOn');
-const bruteBtn = document.getElementById('bruteBtn');
 const clearImage = document.getElementById('clearImage');
-const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
+const rx = document.getElementById('rx'), ry=document.getElementById('ry');
+const rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
 const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
 const texTarget = document.getElementById('texTarget');
 
-const GLB_PATH = 'iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb';
-const SCREEN_TEX_NAME = 'gltf_embedded_18';
+// -------------- GLB path (relative) + cache buster -----------------
+const RAW_PATH = 'iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb';
+const IPHONE_PATH = encodeURI(RAW_PATH) + '?v=' + Date.now(); // kill GH Pages cache
+mv.src = IPHONE_PATH;
 
-let target = { material: null, slot: 'base' }; // slot: 'base' | 'emissive'
+// -------------- error logging -------------------------------------
+mv.addEventListener('error', (e)=>{
+  console.error('model-viewer error:', e?.detail || e);
+});
 
+// -------------- camera / UI (hidden +180° yaw) ---------------------
 function applyCamera(){
-  const theta = parseInt(ry.value,10)||180; // Y
-  const phi = 90 - (parseInt(rx.value,10)||0); // X -> polar
+  const uiTheta = parseInt(ry.value,10)||0;           // what user sees
+  const theta = (uiTheta + 180) % 360;                // internal +180 so front-on is screen
+  const phi = 90 - (parseInt(rx.value,10)||0);
   const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
   mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
-  rxVal.textContent = `${rx.value}°`; ryVal.textContent = `${ry.value}°`; padVal.textContent = `${pad.value}px`;
+  rxVal.textContent = `${rx.value}°`;
+  ryVal.textContent = `${uiTheta}°`;
+  padVal.textContent = `${pad.value}px`;
 }
 [rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
-document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=180; applyCamera(); });
-document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=156; applyCamera(); });
-document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=180; pad.value=36; applyCamera(); });
+document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
+document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=-24; applyCamera(); });
+document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-function populateMaterials(){
-  matSelect.innerHTML = '<option value="">— choose material —</option>';
+// -------------- materials / screen target -------------------------
+let target = { material:null, slot:'base' }; // 'base' or 'emissive'
+
+function logMaterials(){
   const mats = mv.model?.materials || [];
-  for(const m of mats){
-    const opt = document.createElement('option');
-    opt.value = m.name;
-    opt.textContent = m.name || '(unnamed)';
-    matSelect.appendChild(opt);
-  }
+  console.group('Materials in GLB');
+  mats.forEach((m,i)=>{
+    const base = m.pbrMetallicRoughness.baseColorTexture?.texture?.source?.name;
+    const emis = m.emissiveTexture?.texture?.source?.name;
+    console.log(`#${i}`, m.name, { base, emissive: emis });
+  });
+  console.groupEnd();
 }
 
 function findByTextureName(sub){
@@ -159,46 +154,52 @@ function findByTextureName(sub){
 }
 
 mv.addEventListener('load', ()=>{
-  populateMaterials();
-  const hit = findByTextureName(SCREEN_TEX_NAME);
+  // populate dropdown
+  matSelect.innerHTML = '<option value="">— choose material —</option>';
+  const mats = mv.model?.materials || [];
+  for(const m of mats){
+    const opt = document.createElement('option');
+    opt.value = m.name; opt.textContent = m.name || '(unnamed)';
+    matSelect.appendChild(opt);
+  }
+  logMaterials();
+
+  // try to target the embedded screen texture by filename
+  const hit = findByTextureName('gltf_embedded_18');
   if(hit){
     target = hit;
     matSelect.value = target.material.name;
-    texTarget.textContent = `${SCREEN_TEX_NAME} (${target.slot})`;
+    texTarget.textContent = `gltf_embedded_18 (${target.slot})`;
   }else{
     texTarget.textContent = '(none detected)';
   }
 });
 
+// Fallback auto-pick by material name patterns
 autoBtn.addEventListener('click', ()=>{
   const mats = mv.model?.materials || [];
-  const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd/i,/oled/i];
-  const hit = mats.find(m=> patterns.some(p=>p.test(m.name||'')));
-  if(hit){ matSelect.value = hit.name; target = {material:hit, slot:'base'}; texTarget.textContent = '(auto by name)'; }
+  const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd|oled/i];
+  const hit = mats.find(m=> patterns.some(p=> p.test(m.name||'')));
+  if(hit){ matSelect.value = hit.name; target = {material:hit, slot:'base'}; texTarget.textContent='(auto by name)'; }
 });
 
 chooseImage.addEventListener('click', ()=> imageInput.click());
 
 imageInput.addEventListener('change', async ()=>{
   const f = imageInput.files[0]; if(!f) return;
-  // If user picked a material, use it
   const chosenName = matSelect.value;
   if(chosenName){
     const mats = mv.model?.materials || [];
     const m = mats.find(mm => mm.name === chosenName);
-    if(m){ target.material = m; }
-  }
-  // If still no material, try the texture-name match again
-  if(!target.material){
-    const hit = findByTextureName(SCREEN_TEX_NAME);
-    if(hit) target = hit;
+    if(m) target.material = m;
   }
   if(!target.material){
-    alert('No target material found yet. Try Auto‑detect or pick a material from the dropdown.');
+    alert('No target material found yet. Try Auto-detect or pick a material.');
     return;
   }
   const tex = await mv.createTexture(URL.createObjectURL(f));
-  if(target.slot === 'emissive' && emissiveOn.checked){
+  target.material.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+  if(target.slot==='emissive' && emissiveOn.checked){
     target.material.setEmissiveTexture(tex);
     target.material.setEmissiveFactor([1,1,1]);
   }else{
@@ -208,23 +209,10 @@ imageInput.addEventListener('change', async ()=>{
       target.material.setEmissiveFactor([1,1,1]);
     }
   }
-  target.material.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
   target.material.pbrMetallicRoughness.metallicFactor = 0.0;
   target.material.pbrMetallicRoughness.roughnessFactor = 0.9;
   target.material.alphaMode = 'OPAQUE';
   clearImage.disabled = false;
-});
-
-bruteBtn.addEventListener('click', async ()=>{
-  // Force-apply to selected material regardless of auto detection
-  const chosenName = matSelect.value;
-  if(!chosenName){ alert('Pick a material in the dropdown first.'); return; }
-  const mats = mv.model?.materials || [];
-  const m = mats.find(mm => mm.name === chosenName);
-  if(!m){ alert('Could not find that material on the model.'); return; }
-  target.material = m; target.slot = 'base';
-  texTarget.textContent = `(manual) ${m.name}`;
-  chooseImage.click();
 });
 
 clearImage.addEventListener('click', ()=>{
@@ -235,23 +223,8 @@ clearImage.addEventListener('click', ()=>{
   clearImage.disabled = true;
 });
 
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  try{
-    await mv.updateComplete;
-    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mockup-720.png';
-    a.click();
-  }catch(e){
-    alert('Export failed. If this persists, try a Chromium-based browser.');
-    console.error(e);
-  }
-});
-
-// Init
+// kick it off
 applyCamera();
-mv.src = GLB_PATH;
 </script>
 </body>
 </html>
