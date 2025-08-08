@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Maker — model‑viewer (URL‑match build)</title>
+<title>Mockup Maker — model‑viewer (URL‑match v2)</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
   :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
@@ -28,19 +28,23 @@
 </head>
 <body>
   <aside class="panel">
-    <h1>Mockup Maker <span class="pill">url‑match</span></h1>
+    <h1>Mockup Maker <span class="pill">url‑match v2</span></h1>
     <div class="section"><div class="hint">Loads: <code class="small">iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb</code></div></div>
+
     <div class="section">
       <div class="row"><strong>Screen</strong></div>
       <div class="row">
         <button id="chooseImage" class="btn">Choose Screenshot…</button>
         <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <button id="clearImage" class="btn secondary" disabled>Clear</button>
+        <button id="bruteBtn" class="btn secondary">Brute Apply</button>
       </div>
-      <div class="hint">Targets texture whose URL contains <code>iphone-15-pro/textures/gltf_embedded_18.png</code>.
-        If not found, falls back to largest texture on the model.</div>
-      <div class="hint">Target: <code id="targetLabel" class="small">(detecting…)</code></div>
+      <div class="row">
+        <select id="materialSelect"><option value="">— pick material (fallback) —</option></select>
+        <button id="applyToSelected" class="btn secondary">Apply to selected</button>
+      </div>
+      <div class="hint">Primary target: <code id="targetLabel" class="small">(detecting…)</code></div>
     </div>
+
     <div class="section">
       <div class="row"><strong>Orientation & Padding</strong></div>
       <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="rxVal">0°</div></div>
@@ -48,6 +52,7 @@
       <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div><div style="width:64px;text-align:right" id="padVal">36px</div></div>
       <div class="row"><button id="frontBtn" class="btn secondary">Front‑on</button><button id="tiltBtn" class="btn secondary">Tilted</button><button id="resetBtn" class="btn secondary">Reset</button></div>
     </div>
+
     <div class="section">
       <div class="row"><strong>Export</strong></div>
       <div class="hint">Exports an exact 720×720 PNG.</div>
@@ -69,18 +74,20 @@
 const mv = document.getElementById('mv');
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
-const clearImage = document.getElementById('clearImage');
+const bruteBtn = document.getElementById('bruteBtn');
+const matSelect = document.getElementById('materialSelect');
+const applyToSelected = document.getElementById('applyToSelected');
+const targetLabel = document.getElementById('targetLabel');
 const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
 const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
-const targetLabel = document.getElementById('targetLabel');
 
 const GLB_PATH = 'iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb';
 const SCREEN_URL_SUB = 'iphone-15-pro/textures/gltf_embedded_18.png';
 
 let screenTarget = null;
+let lastTexURL = null;
 
 function texNameOrUrl(tex){
-  // Try a bunch of places where model-viewer/three may stash it
   return tex?.source?.name || tex?.source?.uri || tex?.source?.src || tex?.image?.currentSrc || tex?.image?.src || '';
 }
 function texArea(tex){
@@ -99,22 +106,40 @@ function slotInfo(m){
     emisSize: texArea(emis)
   };
 }
+function populateMaterials(){
+  matSelect.innerHTML = '<option value="">— pick material (fallback) —</option>';
+  for(const m of (mv.model?.materials||[])){
+    const o=document.createElement('option');
+    o.value=m.name; o.textContent=m.name||'(unnamed)';
+    matSelect.appendChild(o);
+  }
+}
 function pickTarget(){
   const mats = mv.model?.materials || [];
-  // 1) URL/filename contains the exact path piece
-  for(const m of mats){
-    const s = slotInfo(m);
-    if((s.baseStr||'').includes(SCREEN_URL_SUB)) return {material:m, slot:'base'};
-    if((s.emisStr||'').includes(SCREEN_URL_SUB)) return {material:m, slot:'emissive'};
+  // give the loader a tick to resolve texture URLs
+  // (some browsers set currentSrc after decode)
+  const attempt = () => {
+    // 1) direct url/filename match
+    for(const m of mats){
+      const s = slotInfo(m);
+      if((s.baseStr||'').includes(SCREEN_URL_SUB) || (s.baseStr||'').endsWith('gltf_embedded_18.png')) return {material:m, slot:'base'};
+      if((s.emisStr||'').includes(SCREEN_URL_SUB) || (s.emisStr||'').endsWith('gltf_embedded_18.png')) return {material:m, slot:'emissive'};
+    }
+    // 2) fallback: largest texture
+    let best=null;
+    for(const m of mats){
+      const s = slotInfo(m);
+      if(s.base && s.baseSize > (best?.size||0)) best={material:m, slot:'base', size:s.baseSize, url:s.baseStr};
+      if(s.emis && s.emisSize > (best?.size||0)) best={material:m, slot:'emissive', size:s.emisSize, url:s.emisStr};
+    }
+    return best && {material:best.material, slot:best.slot};
+  };
+  let t = attempt();
+  if(!t){
+    // try again after a microdelay
+    return new Promise(res=> setTimeout(()=> res(attempt()), 50));
   }
-  // 2) Fallback: largest texture
-  let best=null;
-  for(const m of mats){
-    const s = slotInfo(m);
-    if(s.base && s.baseSize > (best?.size||0)) best={material:m, slot:'base', size:s.baseSize};
-    if(s.emis && s.emisSize > (best?.size||0)) best={material:m, slot:'emissive', size:s.emisSize};
-  }
-  return best && {material:best.material, slot:best.slot};
+  return t;
 }
 function label(){
   if(!screenTarget){ targetLabel.textContent='(not found yet)'; return; }
@@ -135,22 +160,21 @@ document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; 
 document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=-24; applyCamera(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-mv.addEventListener('load', ()=>{
-  screenTarget = pickTarget();
-  label();
+// Use scene-graph-ready which fires after materials/textures are usable
+mv.addEventListener('scene-graph-ready', async ()=>{
+  populateMaterials();
+  const found = await pickTarget();
+  screenTarget = found || null;
   console.log('Picked screen target:', screenTarget);
+  label();
 });
 
 chooseImage.addEventListener('click', ()=> imageInput.click());
-imageInput.addEventListener('change', async ()=>{
-  const f = imageInput.files[0]; if(!f) return;
-  if(!screenTarget){
-    screenTarget = pickTarget();
-    if(!screenTarget){ alert('No screen material found.'); return; }
-  }
-  const tex = await mv.createTexture(URL.createObjectURL(f));
-  const m = screenTarget.material;
-  if(screenTarget.slot === 'emissive'){
+
+async function setTextureOnTarget(file, target){
+  const tex = await mv.createTexture(URL.createObjectURL(file));
+  const m = target.material;
+  if(target.slot === 'emissive'){
     m.setEmissiveTexture(tex);
     m.setEmissiveFactor([1,1,1]);
   }else{
@@ -159,8 +183,44 @@ imageInput.addEventListener('change', async ()=>{
   }
   m.pbrMetallicRoughness.metallicFactor = 0.0;
   m.pbrMetallicRoughness.roughnessFactor = 0.9;
-  clearImage.disabled = true; // keep UI simpler
   label();
+}
+
+imageInput.addEventListener('change', async ()=>{
+  const f = imageInput.files[0]; if(!f) return;
+  if(!screenTarget){
+    const found = await pickTarget();
+    if(!found){ alert('No screen material found. Try Brute Apply or pick a material.'); return; }
+    screenTarget = found;
+  }
+  await setTextureOnTarget(f, screenTarget);
+});
+
+applyToSelected.addEventListener('click', async ()=>{
+  const f = imageInput.files?.[0];
+  if(!f){ alert('Choose an image first.'); return; }
+  const name = matSelect.value;
+  if(!name){ alert('Pick a material.'); return; }
+  const m = (mv.model?.materials||[]).find(mm=> (mm.name||'')===name);
+  if(!m){ alert('Material not found.'); return; }
+  await setTextureOnTarget(f, {material:m, slot:'base'});
+});
+
+bruteBtn.addEventListener('click', async ()=>{
+  const f = imageInput.files?.[0];
+  if(!f){ alert('Choose an image first.'); return; }
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  for(const m of (mv.model?.materials||[])){
+    try{
+      m.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+      m.pbrMetallicRoughness.setBaseColorTexture(tex);
+      m.setEmissiveTexture(tex);
+      m.setEmissiveFactor([1,1,1]);
+      m.pbrMetallicRoughness.metallicFactor = 0.0;
+      m.pbrMetallicRoughness.roughnessFactor = 0.9;
+    }catch{}
+  }
+  alert('Applied to all materials (brute). If something looks weird, pick a specific material and re-apply.');
 });
 
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
