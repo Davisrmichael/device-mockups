@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Maker — model‑viewer (Texture‑target build)</title>
+<title>Mockup Maker — model‑viewer (Slot‑picker build)</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
   :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
@@ -31,7 +31,7 @@
 </head>
 <body>
   <aside class="panel">
-    <h1>Mockup Maker <span class="pill">texture‑target</span></h1>
+    <h1>Mockup Maker <span class="pill">slot‑picker</span></h1>
 
     <div class="section">
       <div class="row"><strong>Device</strong></div>
@@ -47,7 +47,12 @@
       <div class="row"><strong>Screen Texture</strong></div>
       <div class="row">
         <select id="materialSelect"><option value="">— choose material —</option></select>
+        <select id="slotSelect">
+          <option value="base" selected>Base Color</option>
+          <option value="emissive">Emissive</option>
+        </select>
         <button id="autoPick" class="btn secondary">Auto‑detect screen</button>
+        <button id="bruteBtn" class="btn secondary">Brute Apply</button>
       </div>
       <div class="row">
         <div class="hint">Texture target: <code id="texTarget" class="small">(auto)</code></div>
@@ -91,7 +96,9 @@
 <script type="module">
 const mv = document.getElementById('mv');
 const matSelect = document.getElementById('materialSelect');
+const slotSelect = document.getElementById('slotSelect');
 const autoBtn = document.getElementById('autoPick');
+const bruteBtn = document.getElementById('bruteBtn');
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
 const emissiveOn = document.getElementById('emissiveOn');
@@ -102,7 +109,7 @@ const texTarget = document.getElementById('texTarget');
 
 const IPHONE_PATH = 'iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb';
 
-let target = { material: null, slot: 'base' }; // slot: 'base' | 'emissive'
+let target = { material: null, slot: 'base' };
 
 function logMaterials(){
   console.group('Materials & textures');
@@ -140,7 +147,6 @@ document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12;
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
 mv.addEventListener('load', ()=>{
-  // Populate materials
   matSelect.innerHTML = '<option value="">— choose material —</option>';
   const mats = mv.model?.materials || [];
   for(const m of mats){
@@ -151,36 +157,45 @@ mv.addEventListener('load', ()=>{
   }
   logMaterials();
 
-  // Auto-target by embedded texture name
   const hit = findByTextureName('gltf_embedded_18');
   if(hit){
     target = hit;
     matSelect.value = target.material.name;
     texTarget.textContent = `gltf_embedded_18 (${target.slot})`;
+    slotSelect.value = target.slot;
   }else{
     texTarget.textContent = '(none detected)';
   }
 });
 
 autoBtn.addEventListener('click', ()=>{
-  // broader fallback
   const mats = mv.model?.materials || [];
   const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd/i,/oled/i];
   const hit = mats.find(m=> patterns.some(p=>p.test(m.name||'')));
-  if(hit){ matSelect.value = hit.name; target = {material:hit, slot:'base'}; texTarget.textContent = '(auto by name)'; }
+  if(hit){ matSelect.value = hit.name; target = {material:hit, slot:slotSelect.value}; texTarget.textContent = '(auto by name)'; }
+});
+
+bruteBtn.addEventListener('click', async ()=>{
+  const f = imageInput.files?.[0]; if(!f) return alert('Pick an image first');
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  (mv.model?.materials || []).forEach(m=>{
+    m.pbrMetallicRoughness.setBaseColorTexture(tex);
+    m.setEmissiveTexture(tex);
+    m.setEmissiveFactor([1,1,1]);
+  });
 });
 
 chooseImage.addEventListener('click', ()=> imageInput.click());
 
 imageInput.addEventListener('change', async ()=>{
   const f = imageInput.files[0]; if(!f) return;
-  // If user picked a material, override target.material
   const chosenName = matSelect.value;
   if(chosenName){
     const mats = mv.model?.materials || [];
     const m = mats.find(mm => mm.name === chosenName);
     if(m){ target.material = m; } 
   }
+  target.slot = slotSelect.value;
   if(!target.material){
     alert('No target material found yet. Try Auto‑detect or pick a material.');
     return;
@@ -211,7 +226,20 @@ clearImage.addEventListener('click', ()=>{
   clearImage.disabled = true;
 });
 
-// Init
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  try{
+    await mv.updateComplete;
+    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mockup-720.png';
+    a.click();
+  }catch(e){
+    alert('Export failed. If this persists, try a Chromium-based browser.');
+    console.error(e);
+  }
+});
+
 applyCamera();
 mv.src = IPHONE_PATH;
 </script>
