@@ -3,12 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Maker — model‑viewer</title>
+<title>Mockup Maker — model‑viewer (Device Picker v1.1)</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
-  :root{
-    --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px;
-  }
+  :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
   *{box-sizing:border-box} html,body{height:100%}
   body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
        display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
@@ -28,22 +26,41 @@
   .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
   model-viewer{width:720px;height:720px;--poster-color: transparent;}
   .toolbar{display:flex;justify-content:space-between;align-items:center}
+  .subtle{opacity:.85}
+  .inline{display:flex;gap:8px;align-items:center}
 </style>
 </head>
 <body>
   <aside class="panel">
     <h1>Mockup Maker <span class="pill">model‑viewer</span></h1>
+
     <div class="section">
-      <div class="row"><strong>Model</strong><span class="hint">Load a GLB from URL or drag a file onto the viewer</span></div>
-      <div class="urlbar">
-        <input id="modelUrl" placeholder="iphone16_pro_max.glb or https://…/iphone.glb">
+      <div class="row"><strong>Device</strong></div>
+      <div class="row">
+        <select id="deviceSelect">
+          <option value="iphone" selected>iPhone 16 Pro Max</option>
+          <option value="mac">MacBook Pro 16” (2019)</option>
+          <option value="custom">Custom URL…</option>
+        </select>
+      </div>
+      <div id="customBox" class="urlbar" style="display:none">
+        <input id="modelUrl" placeholder="https://…/device.glb">
         <button id="loadUrl" class="btn">Load</button>
       </div>
-      <div class="row">
-        <button id="chooseModel" class="btn secondary">Choose GLB…</button>
-        <input id="modelInput" type="file" accept=".glb,model/gltf-binary" style="display:none">
+      <div class="hint subtle">
+        Defaults assume files live in this repo:<br>
+        <code>apple_iphone_15_pro_max_black(2).glb</code> and <code>macbookpro16_2019.glb</code>.
       </div>
-      <div class="hint">Last URL is remembered. If a local file exists in this repo (e.g., <code>iphone16_pro_max.glb</code>), just type its name.</div>
+      <details class="subtle">
+        <summary>Edit default filenames (advanced)</summary>
+        <div class="urlbar" style="margin-top:8px">
+          <input id="iphonePath" placeholder="iphone16_pro_max.glb" value="apple_iphone_15_pro_max_black(2).glb">
+        </div>
+        <div class="urlbar" style="margin-top:8px">
+          <input id="macPath" placeholder="macbookpro16_2019.glb" value="macbookpro16_2019.glb">
+        </div>
+        <button id="savePaths" class="btn secondary" style="margin-top:8px">Save defaults</button>
+      </details>
     </div>
 
     <div class="section">
@@ -52,12 +69,13 @@
         <select id="materialSelect"><option value="">— choose material —</option></select>
         <button id="autoPick" class="btn secondary">Auto‑detect screen</button>
       </div>
-      <div class="row">
+      <div class="row inline">
         <button id="chooseImage" class="btn">Choose Image…</button>
         <input id="imageInput" type="file" accept="image/*" style="display:none">
+        <label class="inline" style="gap:6px"><input type="checkbox" id="emissiveOn" checked> Make it bright (emissive)</label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
       </div>
-      <div class="hint">Pick a material that represents the display and apply your screenshot as its base color.</div>
+      <div class="hint">If the screen stays dark, keep “Make it bright (emissive)” on. Some models tint or darken base color without emissive.</div>
     </div>
 
     <div class="section">
@@ -90,39 +108,52 @@
 
 <script type="module">
 const mv = document.getElementById('mv');
+const deviceSelect = document.getElementById('deviceSelect');
+const customBox = document.getElementById('customBox');
 const urlInput = document.getElementById('modelUrl');
 const loadBtn = document.getElementById('loadUrl');
-const chooseModel = document.getElementById('chooseModel');
-const modelInput = document.getElementById('modelInput');
 const matSelect = document.getElementById('materialSelect');
 const autoBtn = document.getElementById('autoPick');
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
+const emissiveOn = document.getElementById('emissiveOn');
 const clearImage = document.getElementById('clearImage');
 const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
 const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
+const iphonePathInp = document.getElementById('iphonePath');
+const macPathInp = document.getElementById('macPath');
+const savePathsBtn = document.getElementById('savePaths');
 
-// Remember last URL
-const last = localStorage.getItem('mv_last_url');
-if(last){ urlInput.value = last; mv.src = last; } else {
-  // Default to a filename in repo if present; user can type it
-  urlInput.placeholder = 'iphone16_pro_max.glb or https://…/iphone.glb';
+// Defaults (editable) — iPhone prefilled to your filename
+const defaults = {
+  iphone: localStorage.getItem('mv_iphone_path') || iphonePathInp.value,
+  mac:    localStorage.getItem('mv_mac_path')    || macPathInp.value,
+  device: localStorage.getItem('mv_device')      || 'iphone',
+  lastUrl: localStorage.getItem('mv_last_url')   || ''
+};
+deviceSelect.value = defaults.device;
+
+// Device loading
+function loadDevice(kind){
+  localStorage.setItem('mv_device', kind);
+  if(kind === 'custom'){
+    customBox.style.display = 'flex';
+    if(defaults.lastUrl){ urlInput.value = defaults.lastUrl; mv.src = defaults.lastUrl; }
+    return;
+  }
+  customBox.style.display = 'none';
+  const src = (kind === 'iphone') ? (localStorage.getItem('mv_iphone_path') || iphonePathInp.value.trim())
+                                  : (localStorage.getItem('mv_mac_path') || macPathInp.value.trim());
+  if(!src){ alert('Please set a filename for this device in the advanced box.'); return; }
+  mv.src = src;
 }
+deviceSelect.addEventListener('change', ()=> loadDevice(deviceSelect.value));
 
-// Load by URL
-loadBtn.addEventListener('click', ()=>{
-  const val = urlInput.value.trim();
-  if(!val) return;
+// Custom URL load
+loadBtn?.addEventListener('click', ()=>{
+  const val = urlInput.value.trim(); if(!val) return;
   mv.src = val;
   localStorage.setItem('mv_last_url', val);
-});
-
-// Load by file
-chooseModel.addEventListener('click', ()=> modelInput.click());
-modelInput.addEventListener('change', ()=>{
-  const f = modelInput.files[0];
-  if(!f) return;
-  mv.src = URL.createObjectURL(f);
 });
 
 // Populate materials once loaded
@@ -137,20 +168,19 @@ mv.addEventListener('load', async ()=>{
   }
 });
 
-// Auto-detect screen material
+// Auto-detect screen material (broader patterns)
 autoBtn.addEventListener('click', ()=>{
-  const candidates = (mv.model?.materials || []).filter(m=>{
-    const n = (m.name||'').toLowerCase();
-    return /screen|display|glass|notch/.test(n);
-  });
+  const mats = mv.model?.materials || [];
+  const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd/i,/oled/i];
+  const candidates = mats.filter(m=> patterns.some(p=> p.test(m.name||'')) );
   if(candidates.length){
     matSelect.value = candidates[0].name;
-  } else if(matSelect.options.length>1){
-    matSelect.selectedIndex = 1; // fallback: first material
+  }else if(matSelect.options.length>1){
+    matSelect.selectedIndex = 1;
   }
 });
 
-// Apply screenshot to selected material
+// Apply screenshot to selected material (baseColor + emissive + sane PBR)
 chooseImage.addEventListener('click', ()=> imageInput.click());
 imageInput.addEventListener('change', async ()=>{
   const f = imageInput.files[0]; if(!f) return;
@@ -159,24 +189,44 @@ imageInput.addEventListener('change', async ()=>{
   const mats = mv.model?.materials || [];
   const mat = mats.find(m=>m.name===matName) || mats[0];
   const tex = await mv.createTexture(URL.createObjectURL(f));
-  // Apply as base color (sRGB)
+  // Base color
+  mat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
   mat.pbrMetallicRoughness.setBaseColorTexture(tex);
+  // Make it visible on dark/tinted PBR
+  if(emissiveOn.checked){
+    mat.setEmissiveTexture(tex);
+    mat.setEmissiveFactor([1,1,1]);
+  }else{
+    mat.setEmissiveTexture(null);
+    mat.setEmissiveFactor([0,0,0]);
+  }
+  // Reduce metalness, increase roughness to avoid mirror look
+  mat.pbrMetallicRoughness.metallicFactor = 0.0;
+  mat.pbrMetallicRoughness.roughnessFactor = 0.9;
+  // Ensure opaque, not accidentally transparent
+  mat.alphaMode = 'OPAQUE';
+  // Unlit often helps make the screen pop (optional toggle later)
+  // mat.unlit = true; // keep commented; emissive is usually enough
+  clearImage.disabled = true ? false : false;
   clearImage.disabled = false;
 });
 clearImage.addEventListener('click', ()=>{
-  const matName = matSelect.value;
-  if(!matName) return;
+  const matName = matSelect.value; if(!matName) return;
   const mats = mv.model?.materials || [];
   const mat = mats.find(m=>m.name===matName);
-  if(mat){ mat.pbrMetallicRoughness.baseColorTexture.setTexture(null); }
+  if(mat){
+    mat.pbrMetallicRoughness.baseColorTexture.setTexture(null);
+    mat.setEmissiveTexture(null);
+    mat.setEmissiveFactor([0,0,0]);
+  }
   clearImage.disabled = true;
 });
 
-// Orientation via camera-orbit: <theta>deg <phi>deg <radius>m
+// Orientation via camera-orbit
 function applyCamera(){
-  const theta = parseInt(ry.value,10)||0;  // horizontal spin
-  const phi = 90 - (parseInt(rx.value,10)||0); // convert X tilt to polar
-  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006; // padding -> radius
+  const theta = parseInt(ry.value,10)||0;
+  const phi = 90 - (parseInt(rx.value,10)||0);
+  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
   mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
   rxVal.textContent = `${rx.value}°`; ryVal.textContent = `${ry.value}°`; padVal.textContent = `${pad.value}px`;
 }
@@ -185,16 +235,7 @@ document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; 
 document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=-24; applyCamera(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-// Drag & drop GLB or image
-const stage = document.querySelector('.stage');
-['dragover','drop'].forEach(evt => document.addEventListener(evt, e => e.preventDefault(), false));
-stage.addEventListener('drop', e=>{
-  const f = e.dataTransfer.files?.[0]; if(!f) return;
-  if(/\.glb$/i.test(f.name)){ mv.src = URL.createObjectURL(f); }
-  else if(/^image\//.test(f.type)){ imageInput.files = e.dataTransfer.files; imageInput.dispatchEvent(new Event('change')); }
-});
-
-// Export 720x720
+// Export
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   try{
     await mv.updateComplete;
@@ -209,8 +250,18 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
   }
 });
 
-// Initial camera
+// Save default paths
+savePathsBtn.addEventListener('click', ()=>{
+  const ip = iphonePathInp.value.trim(); const mp = macPathInp.value.trim();
+  if(ip) localStorage.setItem('mv_iphone_path', ip);
+  if(mp) localStorage.setItem('mv_mac_path', mp);
+  alert('Saved. These defaults are stored in your browser.');
+  loadDevice(deviceSelect.value);
+});
+
+// Init
 applyCamera();
+loadDevice('iphone');
 </script>
 </body>
 </html>
