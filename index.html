@@ -1,9 +1,216 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>My 3D Mockup App</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup Maker — model‑viewer</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
+<style>
+  :root{
+    --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
+       display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);
+         padding:16px;display:flex;flex-direction:column;gap:16px;height:calc(100vh - 32px);position:sticky;top:16px}
+  h1{font-size:18px;margin:0;display:flex;gap:8px;align-items:center}
+  .pill{font-size:12px;background:#e0ecff;color:#2563eb;padding:4px 8px;border-radius:999px;font-weight:700}
+  .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
+  .btn.secondary{background:#e5e7eb;color:#111827}
+  .hint{font-size:12px;color:var(--muted)}
+  .urlbar{display:flex;gap:8px;width:100%}
+  .urlbar input{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+  select, input[type="range"]{width:100%}
+  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px;display:flex;justify-content:center}
+  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
+  model-viewer{width:720px;height:720px;--poster-color: transparent;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center}
+</style>
 </head>
 <body>
-    <h1>Hello, GitHub Pages is working!</h1>
+  <aside class="panel">
+    <h1>Mockup Maker <span class="pill">model‑viewer</span></h1>
+    <div class="section">
+      <div class="row"><strong>Model</strong><span class="hint">Load a GLB from URL or drag a file onto the viewer</span></div>
+      <div class="urlbar">
+        <input id="modelUrl" placeholder="iphone16_pro_max.glb or https://…/iphone.glb">
+        <button id="loadUrl" class="btn">Load</button>
+      </div>
+      <div class="row">
+        <button id="chooseModel" class="btn secondary">Choose GLB…</button>
+        <input id="modelInput" type="file" accept=".glb,model/gltf-binary" style="display:none">
+      </div>
+      <div class="hint">Last URL is remembered. If a local file exists in this repo (e.g., <code>iphone16_pro_max.glb</code>), just type its name.</div>
+    </div>
+
+    <div class="section">
+      <div class="row"><strong>Screen Texture</strong></div>
+      <div class="row">
+        <select id="materialSelect"><option value="">— choose material —</option></select>
+        <button id="autoPick" class="btn secondary">Auto‑detect screen</button>
+      </div>
+      <div class="row">
+        <button id="chooseImage" class="btn">Choose Image…</button>
+        <input id="imageInput" type="file" accept="image/*" style="display:none">
+        <button id="clearImage" class="btn secondary" disabled>Clear</button>
+      </div>
+      <div class="hint">Pick a material that represents the display and apply your screenshot as its base color.</div>
+    </div>
+
+    <div class="section">
+      <div class="row"><strong>Orientation & Padding</strong></div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="rxVal">0°</div></div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="ryVal">0°</div></div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div><div style="width:64px;text-align:right" id="padVal">36px</div></div>
+      <div class="row"><button id="frontBtn" class="btn secondary">Front‑on</button><button id="tiltBtn" class="btn secondary">Tilted</button><button id="resetBtn" class="btn secondary">Reset</button></div>
+    </div>
+
+    <div class="section">
+      <div class="row"><strong>Export</strong></div>
+      <div class="hint">Exports an exact 720×720 PNG.</div>
+      <button id="exportBtn" class="btn">Export PNG</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="hint">Preview (exact 720×720 export)</div>
+    </div>
+    <div class="stage-outer">
+      <div class="stage">
+        <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1.0" autoplay shadow-intensity="0" ar-modes=""
+          disable-tap interaction-prompt="none" tone-mapping="neutral">
+        </model-viewer>
+      </div>
+    </div>
+  </main>
+
+<script type="module">
+const mv = document.getElementById('mv');
+const urlInput = document.getElementById('modelUrl');
+const loadBtn = document.getElementById('loadUrl');
+const chooseModel = document.getElementById('chooseModel');
+const modelInput = document.getElementById('modelInput');
+const matSelect = document.getElementById('materialSelect');
+const autoBtn = document.getElementById('autoPick');
+const chooseImage = document.getElementById('chooseImage');
+const imageInput = document.getElementById('imageInput');
+const clearImage = document.getElementById('clearImage');
+const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
+const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
+
+// Remember last URL
+const last = localStorage.getItem('mv_last_url');
+if(last){ urlInput.value = last; mv.src = last; } else {
+  // Default to a filename in repo if present; user can type it
+  urlInput.placeholder = 'iphone16_pro_max.glb or https://…/iphone.glb';
+}
+
+// Load by URL
+loadBtn.addEventListener('click', ()=>{
+  const val = urlInput.value.trim();
+  if(!val) return;
+  mv.src = val;
+  localStorage.setItem('mv_last_url', val);
+});
+
+// Load by file
+chooseModel.addEventListener('click', ()=> modelInput.click());
+modelInput.addEventListener('change', ()=>{
+  const f = modelInput.files[0];
+  if(!f) return;
+  mv.src = URL.createObjectURL(f);
+});
+
+// Populate materials once loaded
+mv.addEventListener('load', async ()=>{
+  matSelect.innerHTML = '<option value="">— choose material —</option>';
+  const mats = mv.model?.materials || [];
+  for(const m of mats){
+    const opt = document.createElement('option');
+    opt.value = m.name;
+    opt.textContent = m.name || '(unnamed)';
+    matSelect.appendChild(opt);
+  }
+});
+
+// Auto-detect screen material
+autoBtn.addEventListener('click', ()=>{
+  const candidates = (mv.model?.materials || []).filter(m=>{
+    const n = (m.name||'').toLowerCase();
+    return /screen|display|glass|notch/.test(n);
+  });
+  if(candidates.length){
+    matSelect.value = candidates[0].name;
+  } else if(matSelect.options.length>1){
+    matSelect.selectedIndex = 1; // fallback: first material
+  }
+});
+
+// Apply screenshot to selected material
+chooseImage.addEventListener('click', ()=> imageInput.click());
+imageInput.addEventListener('change', async ()=>{
+  const f = imageInput.files[0]; if(!f) return;
+  const matName = matSelect.value;
+  if(!matName){ alert('Pick a material first (or Auto‑detect).'); return; }
+  const mats = mv.model?.materials || [];
+  const mat = mats.find(m=>m.name===matName) || mats[0];
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  // Apply as base color (sRGB)
+  mat.pbrMetallicRoughness.setBaseColorTexture(tex);
+  clearImage.disabled = false;
+});
+clearImage.addEventListener('click', ()=>{
+  const matName = matSelect.value;
+  if(!matName) return;
+  const mats = mv.model?.materials || [];
+  const mat = mats.find(m=>m.name===matName);
+  if(mat){ mat.pbrMetallicRoughness.baseColorTexture.setTexture(null); }
+  clearImage.disabled = true;
+});
+
+// Orientation via camera-orbit: <theta>deg <phi>deg <radius>m
+function applyCamera(){
+  const theta = parseInt(ry.value,10)||0;  // horizontal spin
+  const phi = 90 - (parseInt(rx.value,10)||0); // convert X tilt to polar
+  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006; // padding -> radius
+  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
+  rxVal.textContent = `${rx.value}°`; ryVal.textContent = `${ry.value}°`; padVal.textContent = `${pad.value}px`;
+}
+[rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
+document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
+document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=-24; applyCamera(); });
+document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
+
+// Drag & drop GLB or image
+const stage = document.querySelector('.stage');
+['dragover','drop'].forEach(evt => document.addEventListener(evt, e => e.preventDefault(), false));
+stage.addEventListener('drop', e=>{
+  const f = e.dataTransfer.files?.[0]; if(!f) return;
+  if(/\.glb$/i.test(f.name)){ mv.src = URL.createObjectURL(f); }
+  else if(/^image\//.test(f.type)){ imageInput.files = e.dataTransfer.files; imageInput.dispatchEvent(new Event('change')); }
+});
+
+// Export 720x720
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  try{
+    await mv.updateComplete;
+    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mockup-720.png';
+    a.click();
+  }catch(e){
+    alert('Export failed. If this persists, try a Chromium-based browser.');
+    console.error(e);
+  }
+});
+
+// Initial camera
+applyCamera();
+</script>
 </body>
 </html>
