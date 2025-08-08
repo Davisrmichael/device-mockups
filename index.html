@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Maker — model‑viewer (Device Picker v1.1)</title>
+<title>Mockup Maker — model‑viewer (Texture‑target build)</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
   :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
@@ -26,41 +26,21 @@
   .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
   model-viewer{width:720px;height:720px;--poster-color: transparent;}
   .toolbar{display:flex;justify-content:space-between;align-items:center}
-  .subtle{opacity:.85}
-  .inline{display:flex;gap:8px;align-items:center}
+  code.small{font-size:11px}
 </style>
 </head>
 <body>
   <aside class="panel">
-    <h1>Mockup Maker <span class="pill">model‑viewer</span></h1>
+    <h1>Mockup Maker <span class="pill">texture‑target</span></h1>
 
     <div class="section">
       <div class="row"><strong>Device</strong></div>
       <div class="row">
         <select id="deviceSelect">
           <option value="iphone" selected>iPhone 16 Pro Max</option>
-          <option value="mac">MacBook Pro 16” (2019)</option>
-          <option value="custom">Custom URL…</option>
         </select>
       </div>
-      <div id="customBox" class="urlbar" style="display:none">
-        <input id="modelUrl" placeholder="https://…/device.glb">
-        <button id="loadUrl" class="btn">Load</button>
-      </div>
-      <div class="hint subtle">
-        Defaults assume files live in this repo:<br>
-        <code>apple_iphone_15_pro_max_black(2).glb</code> and <code>macbookpro16_2019.glb</code>.
-      </div>
-      <details class="subtle">
-        <summary>Edit default filenames (advanced)</summary>
-        <div class="urlbar" style="margin-top:8px">
-          <input id="iphonePath" placeholder="iphone16_pro_max.glb" value="apple_iphone_15_pro_max_black(2).glb">
-        </div>
-        <div class="urlbar" style="margin-top:8px">
-          <input id="macPath" placeholder="macbookpro16_2019.glb" value="macbookpro16_2019.glb">
-        </div>
-        <button id="savePaths" class="btn secondary" style="margin-top:8px">Save defaults</button>
-      </details>
+      <div class="hint">Looks for <code class="small">iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb</code> in repo.</div>
     </div>
 
     <div class="section">
@@ -69,13 +49,15 @@
         <select id="materialSelect"><option value="">— choose material —</option></select>
         <button id="autoPick" class="btn secondary">Auto‑detect screen</button>
       </div>
-      <div class="row inline">
+      <div class="row">
+        <div class="hint">Texture target: <code id="texTarget" class="small">(auto)</code></div>
+      </div>
+      <div class="row">
         <button id="chooseImage" class="btn">Choose Image…</button>
         <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <label class="inline" style="gap:6px"><input type="checkbox" id="emissiveOn" checked> Make it bright (emissive)</label>
+        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Make it bright (emissive)</label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
       </div>
-      <div class="hint">If the screen stays dark, keep “Make it bright (emissive)” on. Some models tint or darken base color without emissive.</div>
     </div>
 
     <div class="section">
@@ -108,10 +90,6 @@
 
 <script type="module">
 const mv = document.getElementById('mv');
-const deviceSelect = document.getElementById('deviceSelect');
-const customBox = document.getElementById('customBox');
-const urlInput = document.getElementById('modelUrl');
-const loadBtn = document.getElementById('loadUrl');
 const matSelect = document.getElementById('materialSelect');
 const autoBtn = document.getElementById('autoPick');
 const chooseImage = document.getElementById('chooseImage');
@@ -120,109 +98,34 @@ const emissiveOn = document.getElementById('emissiveOn');
 const clearImage = document.getElementById('clearImage');
 const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
 const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
-const iphonePathInp = document.getElementById('iphonePath');
-const macPathInp = document.getElementById('macPath');
-const savePathsBtn = document.getElementById('savePaths');
+const texTarget = document.getElementById('texTarget');
 
-// Defaults (editable) — iPhone prefilled to your filename
-const defaults = {
-  iphone: localStorage.getItem('mv_iphone_path') || iphonePathInp.value,
-  mac:    localStorage.getItem('mv_mac_path')    || macPathInp.value,
-  device: localStorage.getItem('mv_device')      || 'iphone',
-  lastUrl: localStorage.getItem('mv_last_url')   || ''
-};
-deviceSelect.value = defaults.device;
+const IPHONE_PATH = 'iphone-15-pro/source/apple_iphone_15_pro_max_black(2).glb';
 
-// Device loading
-function loadDevice(kind){
-  localStorage.setItem('mv_device', kind);
-  if(kind === 'custom'){
-    customBox.style.display = 'flex';
-    if(defaults.lastUrl){ urlInput.value = defaults.lastUrl; mv.src = defaults.lastUrl; }
-    return;
-  }
-  customBox.style.display = 'none';
-  const src = (kind === 'iphone') ? (localStorage.getItem('mv_iphone_path') || iphonePathInp.value.trim())
-                                  : (localStorage.getItem('mv_mac_path') || macPathInp.value.trim());
-  if(!src){ alert('Please set a filename for this device in the advanced box.'); return; }
-  mv.src = src;
+let target = { material: null, slot: 'base' }; // slot: 'base' | 'emissive'
+
+function logMaterials(){
+  console.group('Materials & textures');
+  const mats = mv.model?.materials || [];
+  mats.forEach((m,i)=>{
+    const base = m.pbrMetallicRoughness.baseColorTexture?.texture?.source?.name;
+    const emis = m.emissiveTexture?.texture?.source?.name;
+    console.log(`#${i} ${m.name}`, {base, emissive: emis});
+  });
+  console.groupEnd();
 }
-deviceSelect.addEventListener('change', ()=> loadDevice(deviceSelect.value));
 
-// Custom URL load
-loadBtn?.addEventListener('click', ()=>{
-  const val = urlInput.value.trim(); if(!val) return;
-  mv.src = val;
-  localStorage.setItem('mv_last_url', val);
-});
-
-// Populate materials once loaded
-mv.addEventListener('load', async ()=>{
-  matSelect.innerHTML = '<option value="">— choose material —</option>';
+function findByTextureName(sub){
   const mats = mv.model?.materials || [];
   for(const m of mats){
-    const opt = document.createElement('option');
-    opt.value = m.name;
-    opt.textContent = m.name || '(unnamed)';
-    matSelect.appendChild(opt);
+    const base = m.pbrMetallicRoughness.baseColorTexture?.texture?.source?.name || '';
+    const emis = m.emissiveTexture?.texture?.source?.name || '';
+    if(base.includes(sub)) return {material:m, slot:'base'};
+    if(emis.includes(sub)) return {material:m, slot:'emissive'};
   }
-});
+  return null;
+}
 
-// Auto-detect screen material (broader patterns)
-autoBtn.addEventListener('click', ()=>{
-  const mats = mv.model?.materials || [];
-  const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd/i,/oled/i];
-  const candidates = mats.filter(m=> patterns.some(p=> p.test(m.name||'')) );
-  if(candidates.length){
-    matSelect.value = candidates[0].name;
-  }else if(matSelect.options.length>1){
-    matSelect.selectedIndex = 1;
-  }
-});
-
-// Apply screenshot to selected material (baseColor + emissive + sane PBR)
-chooseImage.addEventListener('click', ()=> imageInput.click());
-imageInput.addEventListener('change', async ()=>{
-  const f = imageInput.files[0]; if(!f) return;
-  const matName = matSelect.value;
-  if(!matName){ alert('Pick a material first (or Auto‑detect).'); return; }
-  const mats = mv.model?.materials || [];
-  const mat = mats.find(m=>m.name===matName) || mats[0];
-  const tex = await mv.createTexture(URL.createObjectURL(f));
-  // Base color
-  mat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
-  mat.pbrMetallicRoughness.setBaseColorTexture(tex);
-  // Make it visible on dark/tinted PBR
-  if(emissiveOn.checked){
-    mat.setEmissiveTexture(tex);
-    mat.setEmissiveFactor([1,1,1]);
-  }else{
-    mat.setEmissiveTexture(null);
-    mat.setEmissiveFactor([0,0,0]);
-  }
-  // Reduce metalness, increase roughness to avoid mirror look
-  mat.pbrMetallicRoughness.metallicFactor = 0.0;
-  mat.pbrMetallicRoughness.roughnessFactor = 0.9;
-  // Ensure opaque, not accidentally transparent
-  mat.alphaMode = 'OPAQUE';
-  // Unlit often helps make the screen pop (optional toggle later)
-  // mat.unlit = true; // keep commented; emissive is usually enough
-  clearImage.disabled = true ? false : false;
-  clearImage.disabled = false;
-});
-clearImage.addEventListener('click', ()=>{
-  const matName = matSelect.value; if(!matName) return;
-  const mats = mv.model?.materials || [];
-  const mat = mats.find(m=>m.name===matName);
-  if(mat){
-    mat.pbrMetallicRoughness.baseColorTexture.setTexture(null);
-    mat.setEmissiveTexture(null);
-    mat.setEmissiveFactor([0,0,0]);
-  }
-  clearImage.disabled = true;
-});
-
-// Orientation via camera-orbit
 function applyCamera(){
   const theta = parseInt(ry.value,10)||0;
   const phi = 90 - (parseInt(rx.value,10)||0);
@@ -231,37 +134,86 @@ function applyCamera(){
   rxVal.textContent = `${rx.value}°`; ryVal.textContent = `${ry.value}°`; padVal.textContent = `${pad.value}px`;
 }
 [rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
+
 document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
 document.getElementById('tiltBtn').addEventListener('click', ()=>{ rx.value=-12; ry.value=-24; applyCamera(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-// Export
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  try{
-    await mv.updateComplete;
-    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mockup-720.png';
-    a.click();
-  }catch(e){
-    alert('Export failed. If this persists, try a Chromium-based browser.');
-    console.error(e);
+mv.addEventListener('load', ()=>{
+  // Populate materials
+  matSelect.innerHTML = '<option value="">— choose material —</option>';
+  const mats = mv.model?.materials || [];
+  for(const m of mats){
+    const opt = document.createElement('option');
+    opt.value = m.name;
+    opt.textContent = m.name || '(unnamed)';
+    matSelect.appendChild(opt);
+  }
+  logMaterials();
+
+  // Auto-target by embedded texture name
+  const hit = findByTextureName('gltf_embedded_18');
+  if(hit){
+    target = hit;
+    matSelect.value = target.material.name;
+    texTarget.textContent = `gltf_embedded_18 (${target.slot})`;
+  }else{
+    texTarget.textContent = '(none detected)';
   }
 });
 
-// Save default paths
-savePathsBtn.addEventListener('click', ()=>{
-  const ip = iphonePathInp.value.trim(); const mp = macPathInp.value.trim();
-  if(ip) localStorage.setItem('mv_iphone_path', ip);
-  if(mp) localStorage.setItem('mv_mac_path', mp);
-  alert('Saved. These defaults are stored in your browser.');
-  loadDevice(deviceSelect.value);
+autoBtn.addEventListener('click', ()=>{
+  // broader fallback
+  const mats = mv.model?.materials || [];
+  const patterns = [/screen/i,/display/i,/glass/i,/island/i,/panel/i,/lcd/i,/oled/i];
+  const hit = mats.find(m=> patterns.some(p=>p.test(m.name||'')));
+  if(hit){ matSelect.value = hit.name; target = {material:hit, slot:'base'}; texTarget.textContent = '(auto by name)'; }
+});
+
+chooseImage.addEventListener('click', ()=> imageInput.click());
+
+imageInput.addEventListener('change', async ()=>{
+  const f = imageInput.files[0]; if(!f) return;
+  // If user picked a material, override target.material
+  const chosenName = matSelect.value;
+  if(chosenName){
+    const mats = mv.model?.materials || [];
+    const m = mats.find(mm => mm.name === chosenName);
+    if(m){ target.material = m; } 
+  }
+  if(!target.material){
+    alert('No target material found yet. Try Auto‑detect or pick a material.');
+    return;
+  }
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  target.material.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+  if(target.slot === 'emissive' && emissiveOn.checked){
+    target.material.setEmissiveTexture(tex);
+    target.material.setEmissiveFactor([1,1,1]);
+  }else{
+    target.material.pbrMetallicRoughness.setBaseColorTexture(tex);
+    if(emissiveOn.checked){
+      target.material.setEmissiveTexture(tex);
+      target.material.setEmissiveFactor([1,1,1]);
+    }
+  }
+  target.material.pbrMetallicRoughness.metallicFactor = 0.0;
+  target.material.pbrMetallicRoughness.roughnessFactor = 0.9;
+  target.material.alphaMode = 'OPAQUE';
+  clearImage.disabled = false;
+});
+
+clearImage.addEventListener('click', ()=>{
+  if(!target.material) return;
+  target.material.pbrMetallicRoughness.baseColorTexture?.setTexture(null);
+  target.material.setEmissiveTexture(null);
+  target.material.setEmissiveFactor([0,0,0]);
+  clearImage.disabled = true;
 });
 
 // Init
 applyCamera();
-loadDevice('iphone');
+mv.src = IPHONE_PATH;
 </script>
 </body>
 </html>
