@@ -1,303 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mockup Maker — iPhone • model-viewer</title>
-<script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>iPhone Mockup Maker</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 <style>
-  :root{--bg:#e9edf1;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--btn:#111827;--radius:16px}
-  *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
-       display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);
-         padding:16px;display:flex;flex-direction:column;gap:16px;height:calc(100vh - 32px);position:sticky;top:16px}
-  h1{font-size:18px;margin:0;display:flex;gap:8px;align-items:center}
-  .pill{font-size:12px;background:#e0ecff;color:#2563eb;padding:4px 8px;border-radius:999px;font-weight:700}
-  .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
-  .btn.secondary{background:#e5e7eb;color:#111827}
-  .hint{font-size:12px;color:var(--muted)}
-  .num{width:56px;text-align:right}
-  input[type="range"]{width:100%}
-  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px;display:flex;justify-content:center}
-  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
-  model-viewer{width:720px;height:720px;--poster-color: transparent;}
-  .toolbar{display:flex;justify-content:space-between;align-items:center}
-  .msg{font-size:12px;padding:8px 10px;border-radius:8px}
-  .msg.ok{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
-  .msg.err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
-  .grid{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    background: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  model-viewer {
+    width: 400px;
+    height: 800px;
+    background: transparent;
+  }
+  #controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 400px;
+    width: 100%;
+  }
+  canvas {
+    display: none;
+  }
 </style>
 </head>
 <body>
-  <aside class="panel">
-    <h1>Mockup Maker <span class="pill">iPhone • model-viewer</span></h1>
 
-    <div class="section">
-      <div class="row"><strong>Screen Texture</strong></div>
-      <div class="row">
-        <button id="chooseImage" class="btn">Choose Image…</button>
-        <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
-        <label style="font-size:12px"><input type="checkbox" id="flipX"> Flip X</label>
-        <label style="font-size:12px"><input type="checkbox" id="flipY"> Flip Y</label>
-        <button id="clearImage" class="btn secondary" disabled>Clear</button>
-      </div>
+<h1>iPhone Mockup Maker</h1>
 
-      <div class="grid">
-        <span class="hint">Zoom</span><span class="num" id="zoomVal">1.00×</span>
-      </div>
-      <input id="zoom" type="range" min="0.6" max="2.0" step="0.01" value="1.00">
+<model-viewer id="viewer"
+  src="iPhone-15-Pro-converted/iphone_15_pro_max.gltf"
+  camera-controls
+  auto-rotate
+  ar
+  exposure="1"
+  shadow-intensity="1">
+</model-viewer>
 
-      <div class="grid">
-        <span class="hint">Pan X</span><span class="num" id="panXVal">0.00</span>
-      </div>
-      <input id="panX" type="range" min="-1.0" max="1.0" step="0.01" value="0">
+<div id="controls">
+  <input type="file" id="imageInput" accept="image/*" />
+  <label>Zoom: <input type="range" id="zoom" min="0.5" max="2" step="0.01" value="1" /></label>
+  <label>Pan X: <input type="range" id="panX" min="-1" max="1" step="0.01" value="0" /></label>
+  <label>Pan Y: <input type="range" id="panY" min="-1" max="1" step="0.01" value="0" /></label>
+  <label><input type="checkbox" id="flipX" /> Flip X</label>
+  <label><input type="checkbox" id="flipY" /> Flip Y</label>
+</div>
 
-      <div class="grid">
-        <span class="hint">Pan Y</span><span class="num" id="panYVal">0.00</span>
-      </div>
-      <input id="panY" type="range" min="-1.0" max="1.0" step="0.01" value="0">
-
-      <div id="status" class="msg" style="display:none"></div>
-      <div class="hint">Image uses <b>cover</b> (fills screen, may crop). Zoom is uniform; pan offsets inside the canvas. Flip if your UVs mirror the image.</div>
-    </div>
-
-    <div class="section">
-      <div class="row"><strong>Orientation & Padding</strong></div>
-      <div class="grid"><span class="hint">Rotate X (°)</span><span class="num" id="rxVal">0°</span></div>
-      <input id="rx" type="range" min="-60" max="60" step="1" value="0">
-
-      <div class="grid"><span class="hint">Rotate Y (°)</span><span class="num" id="ryVal">0°</span></div>
-      <input id="ry" type="range" min="-60" max="60" step="1" value="0">
-
-      <div class="grid"><span class="hint">Padding</span><span class="num" id="padVal">36px</span></div>
-      <input id="pad" type="range" min="0" max="220" step="2" value="36">
-
-      <div class="row">
-        <button id="frontBtn" class="btn secondary">Front-on</button>
-        <button id="resetBtn" class="btn secondary">Reset</button>
-      </div>
-      <div class="hint">Front-on uses a hidden +180° yaw so the slider shows 0° but faces the screen.</div>
-    </div>
-
-    <div class="section">
-      <div class="row"><strong>Export</strong></div>
-      <div class="hint">Exports an exact 720×720 PNG.</div>
-      <button id="exportBtn" class="btn">Export PNG</button>
-    </div>
-  </aside>
-
-  <main>
-    <div class="toolbar">
-      <div class="hint">Preview (exact 720×720 export)</div>
-    </div>
-    <div class="stage-outer">
-      <div class="stage">
-        <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1.0"
-          autoplay shadow-intensity="0" ar-modes=""
-          disable-tap interaction-prompt="none" tone-mapping="neutral"
-          src="iPhone-15-pro-2/iPhone-15.gltf">
-        </model-viewer>
-      </div>
-    </div>
-  </main>
+<canvas id="offscreen" width="1024" height="1024"></canvas>
 
 <script type="module">
-const mv = document.getElementById('mv');
-
-const chooseImage = document.getElementById('chooseImage');
-const imageInput  = document.getElementById('imageInput');
-const emissiveOn  = document.getElementById('emissiveOn');
-const flipXEl     = document.getElementById('flipX');
-const flipYEl     = document.getElementById('flipY');
-const clearImage  = document.getElementById('clearImage');
-
-const zoom  = document.getElementById('zoom');
-const panX  = document.getElementById('panX');
-const panY  = document.getElementById('panY');
-const zoomVal = document.getElementById('zoomVal');
-const panXVal = document.getElementById('panXVal');
-const panYVal = document.getElementById('panYVal');
-
-const rx = document.getElementById('rx'), ry = document.getElementById('ry');
-const pad = document.getElementById('pad');
-const rxVal = document.getElementById('rxVal'), ryVal = document.getElementById('ryVal'), padVal = document.getElementById('padVal');
-
-const statusEl = document.getElementById('status');
-
-// Offscreen canvas
-const CANVAS_W = 1024, CANVAS_H = 1024;
-const canvas = document.createElement('canvas');
-canvas.width = CANVAS_W; canvas.height = CANVAS_H;
-const ctx = canvas.getContext('2d');
+const viewer = document.getElementById('viewer');
+const imageInput = document.getElementById('imageInput');
+const zoomSlider = document.getElementById('zoom');
+const panXSlider = document.getElementById('panX');
+const panYSlider = document.getElementById('panY');
+const flipXCheck = document.getElementById('flipX');
+const flipYCheck = document.getElementById('flipY');
+const offscreen = document.getElementById('offscreen');
+const ctx = offscreen.getContext('2d');
 
 let userImage = null;
 
-function msg(text, ok=true){
-  statusEl.textContent = text;
-  statusEl.className = 'msg ' + (ok ? 'ok' : 'err');
-  statusEl.style.display = 'block';
-}
-function hideMsg(){ statusEl.style.display = 'none'; }
+async function applyCanvasToScreen() {
+  const tex = new THREE.CanvasTexture(offscreen);
+  tex.flipY = false;
+  tex.needsUpdate = true;
 
-// Version-safe helpers
-function setBaseColorTextureSafe(mat, tex){
-  const pmr = mat.pbrMetallicRoughness;
-  if (pmr?.baseColorTexture?.setTexture) pmr.baseColorTexture.setTexture(tex);
-  else if (pmr?.setBaseColorTexture) pmr.setBaseColorTexture(tex);
-}
-function setEmissiveTextureSafe(mat, tex){
-  if (mat.emissiveTexture?.setTexture) mat.emissiveTexture.setTexture(tex);
-  else if (mat.setEmissiveTexture) mat.setEmissiveTexture(tex);
-}
-function setBaseWhiteSafe(mat){ try { mat.pbrMetallicRoughness?.setBaseColorFactor?.([1,1,1,1]); } catch {} }
-function setMetalRoughSafe(mat, m, r){
-  try { mat.pbrMetallicRoughness?.setMetallicFactor?.(m); } catch {}
-  try { mat.pbrMetallicRoughness?.setRoughnessFactor?.(r); } catch {}
-}
-function setEmissiveFactorSafe(mat, f){
-  try { mat.setEmissiveFactor?.(f); } catch {}
-  try { mat.emissiveFactor = f; } catch {}
-}
-function getScreenMaterial(){
-  const mats = mv.model?.materials || [];
-  return mats.find(m => (m.name||'') === 'Screen');
+  const model = viewer.model;
+  if (!model) return;
+  const screenMesh = model.getObjectByName('Screen') || model.getObjectByProperty('name', 'Screen');
+  if (screenMesh && screenMesh.material) {
+    screenMesh.material.map = tex;
+    screenMesh.material.needsUpdate = true;
+  }
 }
 
-// DRAW: uniform scale + COVER + optional flips
-function drawToCanvas(){
-  if (!userImage) return;
-  ctx.setTransform(1,0,0,1,0,0);     // reset
-  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
-  ctx.fillStyle = '#000'; ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+function drawToCanvas() {
+  if (!userImage?.bitmap) return;
 
-  const z  = parseFloat(zoom.value);
-  const px = parseFloat(panX.value);
-  const py = parseFloat(panY.value);
+  ctx.clearRect(0, 0, offscreen.width, offscreen.height);
 
-  // cover scale (uniform)
-  const s = Math.max(CANVAS_W / userImage.width, CANVAS_H / userImage.height) * z;
-  const dw = userImage.width * s;
-  const dh = userImage.height * s;
+  const iw = userImage.width;
+  const ih = userImage.height;
+  const canvasRatio = offscreen.width / offscreen.height;
+  const imageRatio = iw / ih;
 
-  // center, then pan (use 20% of canvas as pan travel)
-  let cx = CANVAS_W/2 + px * (CANVAS_W*0.2);
-  let cy = CANVAS_H/2 + py * (CANVAS_H*0.2);
-  let dx = cx - dw/2;
-  let dy = cy - dh/2;
+  let drawWidth, drawHeight;
 
-  // flips: draw via transforms so sampling stays sharp
-  let sx = 1, sy = 1, ox = 0, oy = 0;
-  if (flipXEl.checked){ sx = -1; ox = CANVAS_W; }
-  if (flipYEl.checked){ sy = -1; oy = CANVAS_H; }
-  ctx.setTransform(sx,0,0,sy,ox,oy);
+  // Cover fit while preserving aspect ratio
+  if (imageRatio > canvasRatio) {
+    drawHeight = offscreen.height * zoomSlider.value;
+    drawWidth = drawHeight * imageRatio;
+  } else {
+    drawWidth = offscreen.width * zoomSlider.value;
+    drawHeight = drawWidth / imageRatio;
+  }
 
-  // when flipping, our draw coords must be transformed too
-  if (sx === -1) dx = CANVAS_W - dx - dw;
-  if (sy === -1) dy = CANVAS_H - dy - dh;
+  let dx = offscreen.width / 2 - drawWidth / 2 + panXSlider.value * offscreen.width / 2;
+  let dy = offscreen.height / 2 - drawHeight / 2 - panYSlider.value * offscreen.height / 2;
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(userImage, dx, dy, dw, dh);
+  ctx.save();
+  ctx.translate(offscreen.width / 2, offscreen.height / 2);
+  ctx.scale(flipXCheck.checked ? -1 : 1, flipYCheck.checked ? -1 : 1);
+  ctx.translate(-offscreen.width / 2, -offscreen.height / 2);
+  ctx.drawImage(userImage.bitmap, dx, dy, drawWidth, drawHeight);
+  ctx.restore();
 
-  // reset transform for safety
-  ctx.setTransform(1,0,0,1,0,0);
+  applyCanvasToScreen();
 }
 
-async function applyCanvasToScreen(){
-  try{
-    const scr = getScreenMaterial();
-    if (!scr){ msg('No target material found (needs material named "Screen").', false); return; }
+imageInput.addEventListener('change', async () => {
+  const f = imageInput.files?.[0];
+  if (!f) return;
 
+  try {
+    const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+    userImage = { bitmap: bmp, width: bmp.width, height: bmp.height };
     drawToCanvas();
-    const tex = await mv.createTexture(canvas);
-    setBaseWhiteSafe(scr);
-    setBaseColorTextureSafe(scr, tex);
-
-    if (emissiveOn.checked){
-      setEmissiveTextureSafe(scr, tex);
-      setEmissiveFactorSafe(scr, [1,1,1]);
-    }else{
-      setEmissiveTextureSafe(scr, null);
-      setEmissiveFactorSafe(scr, [0,0,0]);
-    }
-    setMetalRoughSafe(scr, 0.0, 0.9);
-
-    clearImage.disabled = false;
-    msg('Image applied to Screen.');
-  }catch(err){
-    console.error(err);
-    msg('Failed to apply image. Try another file / refresh.', false);
-  }
-}
-
-chooseImage.addEventListener('click', ()=> imageInput.click());
-imageInput.addEventListener('change', ()=>{
-  const f = imageInput.files?.[0]; if(!f) return;
-  const url = URL.createObjectURL(f);
-  const img = new Image();
-  img.onload = ()=>{ userImage = img; applyCanvasToScreen(); URL.revokeObjectURL(url); };
-  img.onerror = (e)=>{ console.error('Image load error', e); msg('Failed to load image file.', false); };
-  img.src = url;
-});
-
-[zoom, panX, panY, flipXEl, flipYEl, emissiveOn].forEach(el=>{
-  el.addEventListener('input', ()=>{ 
-    zoomVal.textContent = `${parseFloat(zoom.value).toFixed(2)}×`;
-    panXVal.textContent = `${parseFloat(panX.value).toFixed(2)}`;
-    panYVal.textContent = `${parseFloat(panY.value).toFixed(2)}`;
-    if (userImage) applyCanvasToScreen();
-  });
-});
-
-function applyCamera(){
-  const theta = (parseInt(ry.value,10)||0) + 180; // face screen
-  const phi   = 90 - (parseInt(rx.value,10)||0);
-  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
-  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
-  rxVal.textContent = `${rx.value}°`; ryVal.textContent = `${ry.value}°`; padVal.textContent = `${pad.value}px`;
-}
-[rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
-document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
-document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
-
-clearImage.addEventListener('click', ()=>{
-  try{
-    const scr = getScreenMaterial();
-    if (!scr) return;
-    setBaseColorTextureSafe(scr, null);
-    setEmissiveTextureSafe(scr, null);
-    setEmissiveFactorSafe(scr, [0,0,0]);
-    hideMsg();
-  }catch(e){ console.warn(e); }
-});
-
-// Export 720×720
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  try{
-    hideMsg();
-    await mv.updateComplete;
-    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mockup-720.png';
-    a.click();
-    setTimeout(()=> URL.revokeObjectURL(a.href), 1000);
-  }catch(e){
-    console.error(e);
-    msg('Export failed. If this persists, try a Chromium-based browser.', false);
+  } catch (e) {
+    console.error('Image decode error', e);
+    alert('Failed to load image file.');
   }
 });
 
-mv.addEventListener('load', ()=>{
-  applyCamera();
-  const scr = getScreenMaterial();
-  if (!scr){ msg('Loaded model, but no material named "Screen" was found.', false); }
-  else hideMsg();
+[zoomSlider, panXSlider, panYSlider, flipXCheck, flipYCheck]
+  .forEach(el => el.addEventListener('input', drawToCanvas));
+
+viewer.addEventListener('load', () => {
+  if (userImage) drawToCanvas();
 });
 </script>
+
 </body>
 </html>
