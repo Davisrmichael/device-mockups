@@ -1,122 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Mockup Maker iPhone • model-viewer</title>
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup Maker — model-viewer</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    display: flex;
-    height: 100vh;
-  }
-  #controls {
-    padding: 20px;
-    background: #f9f9f9;
-    width: 250px;
-    box-sizing: border-box;
-  }
-  #viewer {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #fff;
-  }
-  model-viewer {
-    width: 100%;
-    height: 100%;
-  }
+  :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
+       display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);
+         padding:16px;display:flex;flex-direction:column;gap:16px;height:calc(100vh - 32px);position:sticky;top:16px}
+  h1{font-size:18px;margin:0}
+  .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
+  .btn.secondary{background:#e5e7eb;color:#111827}
+  .hint{font-size:12px;color:var(--muted)}
+  select, input[type="range"]{width:100%}
+  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px;display:flex;justify-content:center}
+  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
+  model-viewer{width:720px;height:720px;--poster-color: transparent;}
+  code.small{font-size:11px}
 </style>
 </head>
 <body>
+  <aside class="panel">
+    <h1>Mockup Maker</h1>
 
-<div id="controls">
-  <h2>Mockup Maker <span style="color: gray;">iPhone • model-viewer</span></h2>
-  <label>Screen Texture<br>
-    <input type="file" id="textureInput" accept="image/*">
-  </label>
-  <br><br>
-  <label>Rotate X (°)<br>
-    <input type="range" id="rotX" min="-180" max="180" value="0">
-  </label>
-  <br><br>
-  <label>Rotate Y (°)<br>
-    <input type="range" id="rotY" min="-180" max="180" value="0">
-  </label>
-  <br><br>
-  <button id="frontOn">Front-on</button>
-</div>
+    <div class="section">
+      <div class="row"><strong>Screen Texture</strong></div>
+      <div class="row">
+        <select id="materialSelect"><option value="">— choose material —</option></select>
+        <button id="autoPick" class="btn secondary">Auto-detect screen</button>
+      </div>
+      <div class="row">
+        <div class="hint">Target: <code id="texTarget" class="small">(auto)</code></div>
+      </div>
+      <div class="row">
+        <button id="chooseImage" class="btn">Choose Image…</button>
+        <input id="imageInput" type="file" accept="image/*" style="display:none">
+        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
+        <button id="clearImage" class="btn secondary" disabled>Clear</button>
+      </div>
+    </div>
 
-<div id="viewer">
-  <model-viewer id="mv"
-    src="iPhone-15-Pro-converted/iphone_15_pro_max.gltf"
-    camera-controls
-    disable-zoom
-    environment-image="neutral"
-    exposure="1"
-    shadow-intensity="1"
-    style="background-color: transparent;">
-  </model-viewer>
-</div>
+    <div class="section">
+      <div class="row"><strong>Orientation & Padding</strong></div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div>
+        <div style="width:44px;text-align:right" id="rxVal">0°</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0"></div>
+        <div style="width:44px;text-align:right" id="ryVal">0°</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div>
+        <div style="width:64px;text-align:right" id="padVal">36px</div>
+      </div>
+      <div class="row"><button id="frontBtn" class="btn secondary">Front-on</button><button id="resetBtn" class="btn secondary">Reset</button></div>
+    </div>
 
-<script>
+    <div class="section">
+      <div class="hint">Exports 720×720 PNG.</div>
+      <button id="exportBtn" class="btn">Export PNG</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="stage-outer">
+      <div class="stage">
+        <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1.0" autoplay shadow-intensity="0"
+          disable-tap interaction-prompt="none" tone-mapping="neutral">
+        </model-viewer>
+      </div>
+    </div>
+  </main>
+
+<script type="module">
+const BASE_X_OFFSET = 180;
+const BASE_Y_OFFSET = 180;
+
 const mv = document.getElementById('mv');
-const rotX = document.getElementById('rotX');
-const rotY = document.getElementById('rotY');
-const textureInput = document.getElementById('textureInput');
-const frontOnBtn = document.getElementById('frontOn');
+const matSelect = document.getElementById('materialSelect');
+const autoBtn = document.getElementById('autoPick');
+const chooseImage = document.getElementById('chooseImage');
+const imageInput = document.getElementById('imageInput');
+const emissiveOn = document.getElementById('emissiveOn');
+const clearImage = document.getElementById('clearImage');
+const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
+const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
+const texTarget = document.getElementById('texTarget');
 
-// Initial rotation to show front, but make slider show 0
-let baseY = 180;
-mv.addEventListener('load', () => {
-  mv.orientation = `0deg ${baseY}deg 0deg`;
-});
+let target = { material: null, slot: 'base' };
 
-rotX.addEventListener('input', () => {
-  mv.orientation = `${rotX.value}deg ${parseInt(rotY.value) + baseY}deg 0deg`;
-});
+function applyCamera(){
+  const theta = BASE_Y_OFFSET + (parseInt(ry.value,10)||0);
+  const phi = 90 - (BASE_X_OFFSET + (parseInt(rx.value,10)||0));
+  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
+  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
+  rxVal.textContent = `${rx.value}°`;
+  ryVal.textContent = `${ry.value}°`;
+  padVal.textContent = `${pad.value}px`;
+}
+[rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
 
-rotY.addEventListener('input', () => {
-  mv.orientation = `${rotX.value}deg ${parseInt(rotY.value) + baseY}deg 0deg`;
-});
+document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
+document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-frontOnBtn.addEventListener('click', () => {
-  rotX.value = 0;
-  rotY.value = 0;
-  mv.orientation = `0deg ${baseY}deg 0deg`;
-});
-
-// Apply uploaded texture
-textureInput.addEventListener('change', async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const url = URL.createObjectURL(file);
-  const scene = mv.model.scene;
-  let applied = false;
-
-  scene.traverse((node) => {
-    if (node.isMesh && node.material.map) {
-      if (node.material.map.name.includes('gltf_embedded_18') ||
-          node.material.map.name.includes('screen') ||
-          node.material.name.toLowerCase().includes('screen')) {
-        new THREE.TextureLoader().load(url, (texture) => {
-          texture.flipY = false;
-          node.material.map = texture;
-          node.material.needsUpdate = true;
-        });
-        applied = true;
-      }
+function findLargestPortraitMaterial(){
+  let best = null, maxArea = 0;
+  const mats = mv.model?.materials || [];
+  for (const m of mats){
+    const tex = m.pbrMetallicRoughness.baseColorTexture?.texture;
+    const img = tex?.source?.image;
+    if(img && img.height > img.width){
+      const area = img.width * img.height;
+      if(area > maxArea){ maxArea = area; best = m; }
     }
+  }
+  return best;
+}
+
+mv.addEventListener('load', ()=>{
+  matSelect.innerHTML = '<option value="">— choose material —</option>';
+  (mv.model?.materials || []).forEach(m=>{
+    const opt = document.createElement('option');
+    opt.value = m.name;
+    opt.textContent = m.name || '(unnamed)';
+    matSelect.appendChild(opt);
   });
 
-  if (!applied) {
-    console.warn('Screen texture not found in model.');
+  const hit = findLargestPortraitMaterial();
+  if(hit){
+    target.material = hit;
+    matSelect.value = hit.name;
+    texTarget.textContent = `(auto: ${hit.name})`;
+  }else{
+    texTarget.textContent = '(none detected)';
+  }
+  applyCamera();
+});
+
+autoBtn.addEventListener('click', ()=>{
+  const hit = findLargestPortraitMaterial();
+  if(hit){
+    target.material = hit;
+    matSelect.value = hit.name;
+    texTarget.textContent = `(auto: ${hit.name})`;
   }
 });
-</script>
 
+chooseImage.addEventListener('click', ()=> imageInput.click());
+
+imageInput.addEventListener('change', async ()=>{
+  const f = imageInput.files[0]; if(!f) return;
+  if(matSelect.value){
+    const m = (mv.model?.materials || []).find(mm => mm.name === matSelect.value);
+    if(m) target.material = m;
+  }
+  if(!target.material){ alert('No target material found.'); return; }
+
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  target.material.pbrMetallicRoughness.setBaseColorTexture(tex);
+  if(emissiveOn.checked){
+    target.material.setEmissiveTexture(tex);
+    target.material.setEmissiveFactor([1,1,1]);
+  }
+  clearImage.disabled = false;
+});
+
+clearImage.addEventListener('click', ()=>{
+  if(!target.material) return;
+  target.material.pbrMetallicRoughness.setBaseColorTexture(null);
+  target.material.setEmissiveTexture(null);
+  target.material.setEmissiveFactor([0,0,0]);
+  clearImage.disabled = true;
+});
+
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
+  const canvas = mv.toCanvas({width:720,height:720});
+  const a = document.createElement('a');
+  a.download = 'mockup.png';
+  a.href = canvas.toDataURL();
+  a.click();
+});
+
+mv.src = `iPhone-15-Pro-converted/iphone_15_pro_max.gltf?v=${Date.now()}`;
+</script>
 </body>
 </html>
