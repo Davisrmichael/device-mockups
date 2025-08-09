@@ -1,234 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mockup Maker — model-viewer</title>
-<script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
-<style>
-  :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
-  *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--ink);
-       display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);
-         padding:16px;display:flex;flex-direction:column;gap:16px;height:calc(100vh - 32px);position:sticky;top:16px}
-  h1{font-size:18px;margin:0}
-  .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
-  .btn.secondary{background:#e5e7eb;color:#111827}
-  .hint{font-size:12px;color:var(--muted)}
-  select, input[type="range"]{width:100%}
-  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.06);padding:16px;display:flex;justify-content:center}
-  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
-  model-viewer{width:720px;height:720px;--poster-color: transparent;}
-  code.small{font-size:11px}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>iPhone Mockup</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    model-viewer {
+      width: 100%;
+      height: 80vh;
+      background-color: #fff;
+    }
+    input {
+      margin-top: 1em;
+    }
+  </style>
 </head>
 <body>
-  <aside class="panel">
-    <h1>Mockup Maker</h1>
 
-    <div class="section">
-      <div class="row"><strong>Screen Texture</strong></div>
-      <div class="row">
-        <select id="materialSelect"><option value="">— choose material —</option></select>
-        <button id="autoPick" class="btn secondary">Auto-detect screen</button>
-      </div>
-      <div class="row">
-        <div class="hint">Target: <code id="texTarget" class="small">(none)</code></div>
-      </div>
-      <div class="row">
-        <button id="chooseImage" class="btn">Choose Image…</button>
-        <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
-        <button id="clearImage" class="btn secondary" disabled>Clear</button>
-        <button id="bruteBtn" class="btn secondary">Brute apply</button>
-      </div>
-    </div>
+<h1>iPhone Mockup Viewer</h1>
 
-    <div class="section">
-      <div class="row"><strong>Orientation & Padding</strong></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="rxVal">0°</div></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="ryVal">0°</div></div>
-      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div><div style="width:64px;text-align:right" id="padVal">36px</div></div>
-      <div class="row"><button id="frontBtn" class="btn secondary">Front-on</button><button id="resetBtn" class="btn secondary">Reset</button></div>
-    </div>
+<model-viewer id="viewer"
+  src="iPhone-15-pro-2/iphone_15_pro_max.gltf"
+  camera-controls
+  exposure="1"
+  environment-image="neutral"
+  shadow-intensity="1"
+  camera-orbit="0deg 0deg 2.5m"
+  camera-target="0m 0m 0m"
+  ar
+></model-viewer>
 
-    <div class="section">
-      <div class="hint">Exports 720×720 PNG.</div>
-      <button id="exportBtn" class="btn">Export PNG</button>
-    </div>
-  </aside>
+<input type="file" id="imageUpload" accept="image/*">
 
-  <main>
-    <div class="stage-outer">
-      <div class="stage">
-        <model-viewer id="mv" camera-controls environment-image="neutral" exposure="1.0" autoplay shadow-intensity="0"
-          disable-tap interaction-prompt="none" tone-mapping="neutral">
-        </model-viewer>
-      </div>
-    </div>
-  </main>
+<script>
+  const viewer = document.querySelector("#viewer");
+  const input = document.querySelector("#imageUpload");
 
-<script type="module">
-const X0 = 180;      // base offsets (so the phone starts upright & front-on)
-const Y0 = 180;
+  input.addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-const mv = document.getElementById('mv');
-const matSelect = document.getElementById('materialSelect');
-const autoBtn = document.getElementById('autoPick');
-const bruteBtn = document.getElementById('bruteBtn');
-const chooseImage = document.getElementById('chooseImage');
-const imageInput = document.getElementById('imageInput');
-const emissiveOn = document.getElementById('emissiveOn');
-const clearImage = document.getElementById('clearImage');
-const rx = document.getElementById('rx'), ry=document.getElementById('ry'), rxVal=document.getElementById('rxVal'), ryVal=document.getElementById('ryVal');
-const pad = document.getElementById('pad'), padVal=document.getElementById('padVal');
-const texTarget = document.getElementById('texTarget');
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    await img.decode();
 
-let target = { material: null, slot: 'base' };
+    const texture = await viewer.createTexture(img);
+    const mat = viewer.model.materials.find(m => m.name === "Screen");
 
-function applyCamera(){
-  const theta = Y0 + (parseInt(ry.value,10)||0);
-  const phi   = 90 - (X0 + (parseInt(rx.value,10)||0));
-  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
-  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
-  rxVal.textContent = `${rx.value}°`;
-  ryVal.textContent = `${ry.value}°`;
-  padVal.textContent = `${pad.value}px`;
-}
-[rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
-document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
-document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
-
-function setTarget(m){
-  target.material = m || null;
-  texTarget.textContent = m ? (m.name || '(unnamed)') : '(none)';
-}
-
-function populateMaterials(){
-  matSelect.innerHTML = '<option value="">— choose material —</option>';
-  (mv.model?.materials || []).forEach(m=>{
-    const opt = document.createElement('option');
-    opt.value = m.name;
-    opt.textContent = m.name || '(unnamed)';
-    matSelect.appendChild(opt);
+    if (mat) {
+      mat.pbrMetallicRoughness.setBaseColorTexture(texture);
+      if (mat.emissiveTexture) {
+        mat.emissiveTexture = texture;
+      }
+    } else {
+      alert("Screen material not found in model.");
+    }
   });
-}
 
-function getDimsFromMaterial(m){
-  const tex = m?.pbrMetallicRoughness?.baseColorTexture?.texture;
-  const img = tex?.source?.image;
-  return img ? {w: img.width||0, h: img.height||0} : {w:0,h:0};
-}
-
-function detectScreen(){
-  const mats = mv.model?.materials || [];
-  if(!mats.length) return null;
-
-  // 1) portrait textures preferred
-  let best = null, bestArea = 0;
-  for(const m of mats){
-    const {w,h} = getDimsFromMaterial(m);
-    if(h > w && (w*h) > bestArea){ best = m; bestArea = w*h; }
-  }
-  if(best) return best;
-
-  // 2) name hints
-  const hint = mats.find(m => /screen|display|glass|island|panel/i.test(m.name||''));
-  if(hint) return hint;
-
-  // 3) largest texture
-  best = null; bestArea = 0;
-  for(const m of mats){
-    const {w,h} = getDimsFromMaterial(m);
-    if((w*h) > bestArea){ best = m; bestArea = w*h; }
-  }
-  return best;
-}
-
-mv.addEventListener('load', async ()=>{
-  await mv.updateComplete;
-  populateMaterials();
-
-  const hit = detectScreen();
-  setTarget(hit);
-  if(hit){
-    // select it in the dropdown if it has a name
-    const n = hit.name;
-    if(n){ matSelect.value = n; }
-  }
-  applyCamera();
-});
-
-// *** IMPORTANT: wire the dropdown to the actual target ***
-matSelect.addEventListener('change', ()=>{
-  const name = matSelect.value;
-  const mats = mv.model?.materials || [];
-  const m = mats.find(mm => mm.name === name);
-  setTarget(m || null);
-});
-
-chooseImage.addEventListener('click', ()=> imageInput.click());
-
-imageInput.addEventListener('change', async ()=>{
-  const f = imageInput.files[0]; if(!f) return;
-
-  // If user picked a material, make sure that's the target
-  if(matSelect.value){
-    const mats = mv.model?.materials || [];
-    const m = mats.find(mm => mm.name === matSelect.value);
-    if(m) setTarget(m);
-  }
-  if(!target.material){ alert('No target material yet. Try Auto-detect or pick from the dropdown.'); return; }
-
-  const tex = await mv.createTexture(URL.createObjectURL(f));
-  target.material.pbrMetallicRoughness.setBaseColorTexture(tex);
-  if(emissiveOn.checked){
-    target.material.setEmissiveTexture(tex);
-    target.material.setEmissiveFactor([1,1,1]);
-  }
-  clearImage.disabled = true === false ? false : false; // keep button enabled logic simple
-  clearImage.disabled = false;
-});
-
-clearImage.addEventListener('click', ()=>{
-  if(!target.material) return;
-  target.material.pbrMetallicRoughness.setBaseColorTexture(null);
-  target.material.setEmissiveTexture(null);
-  target.material.setEmissiveFactor([0,0,0]);
-  clearImage.disabled = true;
-});
-
-// Nuclear option: try the uploaded image on everyone, then lock onto whichever *changed* the most (first match)
-bruteBtn.addEventListener('click', async ()=>{
-  const f = imageInput.files?.[0];
-  if(!f){ alert('Choose an image first.'); return; }
-  const tex = await mv.createTexture(URL.createObjectURL(f));
-  const mats = mv.model?.materials || [];
-  for(const m of mats){
-    m.pbrMetallicRoughness.setBaseColorTexture(tex);
-    if(emissiveOn.checked){ m.setEmissiveTexture(tex); m.setEmissiveFactor([1,1,1]); }
-  }
-  // After brute apply, assume our original auto-detection now points to the real screen
-  const hit = detectScreen() || mats[0];
-  setTarget(hit);
-  if(hit?.name) matSelect.value = hit.name;
-  clearImage.disabled = false;
-});
-
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  await mv.updateComplete;
-  const cnv = mv.toCanvas({width:720,height:720});
-  const a = document.createElement('a');
-  a.download = 'mockup.png';
-  a.href = cnv.toDataURL('image/png');
-  a.click();
-});
-
-// Load the model (cache-busted) — keep textures in the same folder as the .gltf
-mv.src = `iPhone-15-Pro-converted/iphone_15_pro_max.gltf?v=${Date.now()}`;
+  // Ensure default view is "front-on"
+  viewer.addEventListener("load", () => {
+    viewer.cameraOrbit = "180deg 0deg 2.5m"; // rotate to front
+  });
 </script>
+
 </body>
 </html>
