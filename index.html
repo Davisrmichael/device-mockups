@@ -1,93 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>iPhone Mockup Maker</title>
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      display: flex;
-      gap: 20px;
-      padding: 20px;
-    }
-    #controls {
-      max-width: 300px;
-    }
-    label { display: block; margin-top: 10px; }
-    model-viewer {
-      width: 600px;
-      height: 600px;
-      background-color: transparent;
-    }
-    input[type="range"] { width: 100%; }
-  </style>
+<meta charset="UTF-8">
+<title>Mockup Maker iPhone • model-viewer</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    display: flex;
+    height: 100vh;
+  }
+  #controls {
+    padding: 20px;
+    background: #f9f9f9;
+    width: 250px;
+    box-sizing: border-box;
+  }
+  #viewer {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+  }
+  model-viewer {
+    width: 100%;
+    height: 100%;
+  }
+</style>
 </head>
 <body>
 
-  <div id="controls">
-    <h2>Mockup Maker <span style="color:#666;">iPhone • model-viewer</span></h2>
-    <label>Screen Texture
-      <input type="file" id="textureUpload" accept="image/*"/>
-    </label>
-    <label>Rotate X (°)
-      <input type="range" id="rotateX" min="-180" max="180" value="0">
-    </label>
-    <label>Rotate Y (°)
-      <input type="range" id="rotateY" min="-180" max="180" value="0">
-    </label>
-    <button id="frontOn">Front-on</button>
-  </div>
+<div id="controls">
+  <h2>Mockup Maker <span style="color: gray;">iPhone • model-viewer</span></h2>
+  <label>Screen Texture<br>
+    <input type="file" id="textureInput" accept="image/*">
+  </label>
+  <br><br>
+  <label>Rotate X (°)<br>
+    <input type="range" id="rotX" min="-180" max="180" value="0">
+  </label>
+  <br><br>
+  <label>Rotate Y (°)<br>
+    <input type="range" id="rotY" min="-180" max="180" value="0">
+  </label>
+  <br><br>
+  <button id="frontOn">Front-on</button>
+</div>
 
-  <model-viewer id="viewer"
-    src="iPhone-15-Pro-converted/apple_iphone_15_pro_max_black.glb"
-    ar
-    auto-rotate
+<div id="viewer">
+  <model-viewer id="mv"
+    src="iPhone-15-Pro-converted/iphone_15_pro_max.gltf"
     camera-controls
-    rotation-per-second="0"
-    style="--poster-color: transparent;"
+    disable-zoom
+    environment-image="neutral"
     exposure="1"
-    alt="iPhone mockup">
+    shadow-intensity="1"
+    style="background-color: transparent;">
   </model-viewer>
+</div>
 
 <script>
-  const viewer = document.getElementById('viewer');
-  const textureInput = document.getElementById('textureUpload');
-  const rotateX = document.getElementById('rotateX');
-  const rotateY = document.getElementById('rotateY');
-  const frontOnBtn = document.getElementById('frontOn');
+const mv = document.getElementById('mv');
+const rotX = document.getElementById('rotX');
+const rotY = document.getElementById('rotY');
+const textureInput = document.getElementById('textureInput');
+const frontOnBtn = document.getElementById('frontOn');
 
-  // Internally set 180° Y rotation, but slider shows 0
-  let internalRotateY = 180;
-  viewer.cameraOrbit = `0deg ${internalRotateY}deg auto`;
+// Initial rotation to show front, but make slider show 0
+let baseY = 180;
+mv.addEventListener('load', () => {
+  mv.orientation = `0deg ${baseY}deg 0deg`;
+});
 
-  rotateX.addEventListener('input', () => {
-    viewer.cameraOrbit = `${rotateX.value}deg ${internalRotateY}deg auto`;
-  });
+rotX.addEventListener('input', () => {
+  mv.orientation = `${rotX.value}deg ${parseInt(rotY.value) + baseY}deg 0deg`;
+});
 
-  rotateY.addEventListener('input', () => {
-    internalRotateY = parseInt(rotateY.value) + 180; // offset so 0 looks like 180
-    viewer.cameraOrbit = `${rotateX.value}deg ${internalRotateY}deg auto`;
-  });
+rotY.addEventListener('input', () => {
+  mv.orientation = `${rotX.value}deg ${parseInt(rotY.value) + baseY}deg 0deg`;
+});
 
-  frontOnBtn.addEventListener('click', () => {
-    rotateX.value = 0;
-    rotateY.value = 0;
-    internalRotateY = 180;
-    viewer.cameraOrbit = `0deg ${internalRotateY}deg auto`;
-  });
+frontOnBtn.addEventListener('click', () => {
+  rotX.value = 0;
+  rotY.value = 0;
+  mv.orientation = `0deg ${baseY}deg 0deg`;
+});
 
-  textureInput.addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const textureURL = URL.createObjectURL(file);
-      const material = (await viewer.model?.materials?.[0]) || viewer.model.materials[0];
-      if (material) {
-        material.pbrMetallicRoughness.baseColorTexture.texture.source.setURI(textureURL);
+// Apply uploaded texture
+textureInput.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+  const scene = mv.model.scene;
+  let applied = false;
+
+  scene.traverse((node) => {
+    if (node.isMesh && node.material.map) {
+      if (node.material.map.name.includes('gltf_embedded_18') ||
+          node.material.map.name.includes('screen') ||
+          node.material.name.toLowerCase().includes('screen')) {
+        new THREE.TextureLoader().load(url, (texture) => {
+          texture.flipY = false;
+          node.material.map = texture;
+          node.material.needsUpdate = true;
+        });
+        applied = true;
       }
     }
   });
+
+  if (!applied) {
+    console.warn('Screen texture not found in model.');
+  }
+});
 </script>
 
 </body>
