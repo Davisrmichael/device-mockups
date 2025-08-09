@@ -3,73 +3,68 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>iPhone Mockup</title>
+  <title>iPhone Mockup Viewer</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       background: #f0f0f0;
       margin: 0;
-      padding: 0;
+      padding: 1rem;
     }
     model-viewer {
       width: 100%;
-      height: 80vh;
+      max-width: 600px;
+      height: 600px;
       background-color: #fff;
     }
     input {
-      margin-top: 1em;
+      margin-top: 1rem;
     }
   </style>
 </head>
 <body>
 
-<h1>iPhone Mockup Viewer</h1>
+  <h1>iPhone Mockup Viewer</h1>
 
-<model-viewer id="viewer"
-  src="iPhone-15-pro-2/iphone_15_pro_max.gltf"
-  camera-controls
-  exposure="1"
-  environment-image="neutral"
-  shadow-intensity="1"
-  camera-orbit="0deg 0deg 2.5m"
-  camera-target="0m 0m 0m"
-  ar
-></model-viewer>
+  <model-viewer id="viewer"
+    src="iPhone-15-pro-2/iPhone-15.gltf"
+    camera-controls
+    auto-rotate
+    camera-orbit="180deg 90deg auto"
+    exposure="1"
+    environment-image="neutral"
+    ar
+    alt="3D iPhone">
+  </model-viewer>
 
-<input type="file" id="imageUpload" accept="image/*">
+  <input type="file" id="imageUpload" accept="image/*">
 
-<script>
-  const viewer = document.querySelector("#viewer");
-  const input = document.querySelector("#imageUpload");
+  <script>
+    const viewer = document.getElementById('viewer');
+    const upload = document.getElementById('imageUpload');
 
-  input.addEventListener("change", async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    upload.addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
 
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(file);
-    await img.decode();
+      const imgBitmap = await createImageBitmap(file);
+      const texture = await viewer.createTexture(imgBitmap);
 
-    const texture = await viewer.createTexture(img);
-    const mat = viewer.model.materials.find(m => m.name === "Screen");
-
-    if (mat) {
-      mat.pbrMetallicRoughness.setBaseColorTexture(texture);
-      if (mat.emissiveTexture) {
-        mat.emissiveTexture = texture;
+      const material = viewer.model?.materials.find(m => m.name === "Screen");
+      if (material) {
+        material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+        if (material.emissiveTexture) {
+          material.emissiveTexture.setTexture(texture);
+        }
+      } else {
+        console.error("Screen material not found");
       }
-    } else {
-      alert("Screen material not found in model.");
-    }
-  });
-
-  // Ensure default view is "front-on"
-  viewer.addEventListener("load", () => {
-    viewer.cameraOrbit = "180deg 0deg 2.5m"; // rotate to front
-  });
-</script>
+    });
+  </script>
 
 </body>
 </html>
