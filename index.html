@@ -6,37 +6,23 @@
 <title>Mockup Maker — iPhone • model-viewer</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
-  :root{
-    --bg:#eef2f6; --panel:#fff; --ink:#0f172a; --muted:#6b7280; --line:#e5e7eb; --btn:#111827; --radius:16px;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px;
-  }
-  .panel{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    box-shadow:0 8px 24px rgba(0,0,0,.06); padding:16px; display:flex; flex-direction:column; gap:16px;
-    height:calc(100vh - 32px); position:sticky; top:16px;
-  }
-  h1{margin:0; font-size:18px; display:flex; align-items:center; gap:8px}
-  .pill{font-size:12px; background:#e0ecff; color:#2563eb; padding:4px 8px; border-radius:999px; font-weight:700}
-  .section{border-top:1px solid var(--line); padding-top:12px; margin-top:4px}
-  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .hint{font-size:12px; color:var(--muted)}
-  .btn{appearance:none; border:none; border-radius:10px; padding:10px 12px; background:var(--btn); color:#fff; font-weight:700; cursor:pointer}
-  .btn.secondary{background:#e5e7eb; color:#111827}
+  :root{--bg:#eef1f5;--panel:#fff;--ink:#0f172a;--muted:#64748b;--line:#e5e7eb;--btn:#111827;--radius:14px}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.35 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);height:calc(100vh - 32px);position:sticky;top:16px;display:flex;flex-direction:column;gap:16px}
+  h1{margin:0 0 4px;font-size:18px}
+  .hint{color:var(--muted);font-size:12px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .section{border-top:1px solid var(--line);padding-top:12px}
+  .btn{appearance:none;border:0;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
+  .btn.secondary{background:#e5e7eb;color:#111827}
   input[type="range"]{width:100%}
-  .stage-outer{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    box-shadow:0 8px 24px rgba(0,0,0,.06); padding:16px; display:flex; justify-content:center;
-  }
-  .stage{width:720px; height:720px; border-radius:12px; overflow:hidden; background:#e5e7eb; display:flex; align-items:center; justify-content:center}
-  model-viewer{width:720px; height:720px; --poster-color: transparent;}
-  #toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); padding:10px 14px; border-radius:10px; color:#fff; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.25); z-index:9999; opacity:0}
-  .val{width:42px; text-align:right}
+  .stage-outer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.06);display:flex;justify-content:center;align-items:center}
+  .stage{width:720px;height:720px;border-radius:12px;overflow:hidden;background:#e5e7eb;display:flex;align-items:center;justify-content:center}
+  model-viewer{width:720px;height:720px;--poster-color:transparent}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 14px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s ease}
+  .toast.show{opacity:1}
+  .pill{font-size:12px;background:#e0ecff;color:#2563eb;padding:3px 8px;border-radius:999px;font-weight:700;margin-left:8px}
 </style>
 </head>
 <body>
@@ -48,56 +34,49 @@
       <div class="row">
         <button id="chooseImage" class="btn">Choose Image…</button>
         <input id="imageInput" type="file" accept="image/*" style="display:none" />
-        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked /> Bright (emissive)</label>
+        <label class="row" style="gap:6px;margin-left:6px">
+          <input id="emissiveOn" type="checkbox" checked />
+          <span class="hint">Bright (emissive)</span>
+        </label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
       </div>
-
-      <div class="row" style="width:100%">
+      <div class="row" style="margin-top:8px">
         <div style="flex:1">
           <div class="hint">Zoom</div>
-          <input id="zoom" type="range" min="0.5" max="2.0" step="0.01" value="1.00">
+          <input id="zoom" type="range" min="0.6" max="2.0" step="0.01" value="1.0" />
         </div>
-        <div class="val" id="zoomVal">1.00×</div>
+        <div style="width:60px;text-align:right" class="hint" id="zoomVal">1.00×</div>
       </div>
-      <div class="row" style="width:100%">
+      <div class="row">
         <div style="flex:1">
           <div class="hint">Pan X</div>
-          <input id="panX" type="range" min="-1.00" max="1.00" step="0.01" value="0">
+          <input id="panX" type="range" min="-1.0" max="1.0" step="0.01" value="0" />
         </div>
-        <div class="val" id="panXVal">0.00</div>
+        <div style="width:60px;text-align:right" class="hint" id="panXVal">0.00</div>
       </div>
-      <div class="row" style="width:100%">
+      <div class="row">
         <div style="flex:1">
           <div class="hint">Pan Y</div>
-          <input id="panY" type="range" min="-1.00" max="1.00" step="0.01" value="0">
+          <input id="panY" type="range" min="-1.0" max="1.0" step="0.01" value="0" />
         </div>
-        <div class="val" id="panYVal">0.00</div>
+        <div style="width:60px;text-align:right" class="hint" id="panYVal">0.00</div>
       </div>
-      <div class="hint">Targets material named <code>Screen</code>. Image is fit (contain) with zoom + pan controls.</div>
+      <div class="hint">Targets material named <code>Screen</code>. Image is contained (fit) then panned.</div>
     </div>
 
     <div class="section">
-      <div class="row"><strong>Orientation & Padding</strong></div>
+      <div class="row"><strong>Orientation &amp; Padding</strong></div>
       <div class="row" style="width:100%">
-        <div style="flex:1">
-          <div class="hint">Rotate X (°)</div>
-          <input id="rx" type="range" min="-60" max="60" step="1" value="0">
-        </div>
-        <div class="val" id="rxVal">0°</div>
+        <div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="1" value="0" /></div>
+        <div style="width:44px;text-align:right" class="hint" id="rxVal">0°</div>
       </div>
       <div class="row" style="width:100%">
-        <div style="flex:1">
-          <div class="hint">Rotate Y (°)</div>
-          <input id="ry" type="range" min="-60" max="60" step="1" value="0">
-        </div>
-        <div class="val" id="ryVal">0°</div>
+        <div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ryUI" type="range" min="-60" max="60" step="1" value="0" /></div>
+        <div style="width:44px;text-align:right" class="hint" id="ryVal">0°</div>
       </div>
       <div class="row" style="width:100%">
-        <div style="flex:1">
-          <div class="hint">Padding</div>
-          <input id="pad" type="range" min="0" max="220" step="2" value="36">
-        </div>
-        <div class="val" id="padVal">36px</div>
+        <div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36" /></div>
+        <div style="width:64px;text-align:right" class="hint" id="padVal">36px</div>
       </div>
       <div class="row">
         <button id="frontBtn" class="btn secondary">Front-on</button>
@@ -113,239 +92,219 @@
     </div>
   </aside>
 
-  <main>
-    <div class="stage-outer">
-      <div class="stage">
-        <model-viewer id="mv"
-          src="iPhone-15-pro-2/iPhone-15.gltf"
-          camera-controls
-          environment-image="neutral"
-          exposure="1.0"
-          shadow-intensity="0"
-          ar-modes=""
-          disable-tap
-          interaction-prompt="none"
-          tone-mapping="neutral">
-        </model-viewer>
-      </div>
+  <main class="stage-outer">
+    <div class="stage">
+      <model-viewer id="mv"
+        src="iPhone-15-pro-2/iPhone-15.gltf"
+        camera-controls
+        environment-image="neutral"
+        exposure="1.0"
+        shadow-intensity="0"
+        ar-modes=""
+        disable-tap
+        interaction-prompt="none"
+        tone-mapping="neutral">
+      </model-viewer>
     </div>
   </main>
 
-  <div id="toast"></div>
+  <div id="toast" class="toast"></div>
 
 <script type="module">
-  const mv = document.getElementById('mv');
+const mv = document.getElementById('mv');
 
-  // UI refs
-  const chooseImage = document.getElementById('chooseImage');
-  const imageInput  = document.getElementById('imageInput');
-  const emissiveOn  = document.getElementById('emissiveOn');
-  const clearImage  = document.getElementById('clearImage');
+// UI
+const chooseImage = document.getElementById('chooseImage');
+const imageInput  = document.getElementById('imageInput');
+const emissiveOn  = document.getElementById('emissiveOn');
+const clearBtn    = document.getElementById('clearImage');
 
-  const zoom   = document.getElementById('zoom');
-  const panX   = document.getElementById('panX');
-  const panY   = document.getElementById('panY');
-  const zoomVal= document.getElementById('zoomVal');
-  const panXVal= document.getElementById('panXVal');
-  const panYVal= document.getElementById('panYVal');
+const zoom  = document.getElementById('zoom');
+const panX  = document.getElementById('panX');
+const panY  = document.getElementById('panY');
+const zoomVal = document.getElementById('zoomVal');
+const panXVal = document.getElementById('panXVal');
+const panYVal = document.getElementById('panYVal');
 
-  const rx = document.getElementById('rx');
-  const ry = document.getElementById('ry');
-  const pad= document.getElementById('pad');
-  const rxVal = document.getElementById('rxVal');
-  const ryVal = document.getElementById('ryVal');
-  const padVal= document.getElementById('padVal');
+const rx = document.getElementById('rx'), rxVal = document.getElementById('rxVal');
+const ryUI = document.getElementById('ryUI'), ryVal = document.getElementById('ryVal');
+const pad = document.getElementById('pad'), padVal = document.getElementById('padVal');
+const frontBtn = document.getElementById('frontBtn');
+const resetBtn = document.getElementById('resetBtn');
+const exportBtn = document.getElementById('exportBtn');
+const toastEl = document.getElementById('toast');
 
-  const frontBtn = document.getElementById('frontBtn');
-  const resetBtn = document.getElementById('resetBtn');
-  const exportBtn= document.getElementById('exportBtn');
+// camera state (UI shows 0 but real yaw has +180° offset)
+let yawOffset = 180;
 
-  // State for the screen image canvas
-  let userImageBitmap = null;
+function toast(msg, ms=1400){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  setTimeout(()=> toastEl.classList.remove('show'), ms);
+}
 
-  function toast(msg, bad=false){
-    const t = document.getElementById('toast');
-    t.style.background = bad ? '#e11d48' : '#16a34a';
-    t.textContent = msg; t.style.opacity='1';
-    setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 1600);
+// ===== Screen material helpers =====
+function getScreenMaterial(){
+  return mv.model?.materials?.find(m => (m.name||'') === 'Screen') || null;
+}
+function ensureWhiteBase(scr){
+  scr.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+  scr.pbrMetallicRoughness.metallicFactor = 0.0;
+  scr.pbrMetallicRoughness.roughnessFactor = 0.9;
+}
+
+// Offscreen canvas used for fitting/pan/zoom
+const canvas = document.createElement('canvas');
+canvas.width = 2048; canvas.height = 2048; // high-res texture source
+const ctx = canvas.getContext('2d');
+
+function drawToCanvas(img){
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // contain-fit image into canvas, then pan
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const canvasAR = W/H, imgAR = iw/ih;
+
+  const z = parseFloat(zoom.value) || 1;
+  let dw, dh;
+  if (imgAR > canvasAR){
+    // image is wider → fit width
+    dw = W * z;
+    dh = dw / imgAR;
+  } else {
+    // image is taller → fit height
+    dh = H * z;
+    dw = dh * imgAR;
+  }
+  const px = parseFloat(panX.value) || 0; // -1..1
+  const py = parseFloat(panY.value) || 0; // -1..1
+  const cx = W/2 + px * (W - dw)/2;
+  const cy = H/2 + py * (H - dh)/2;
+
+  ctx.fillStyle = '#000'; // black underlay
+  ctx.fillRect(0,0,W,H);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, cx - dw/2, cy - dh/2, dw, dh);
+}
+
+// Current uploaded image element (kept to redraw when sliders move)
+let currentImage = null;
+
+// Apply canvas directly as texture (Option A)
+async function applyCanvasToScreen(){
+  const scr = getScreenMaterial();
+  if (!scr){ toast('Screen material not found'); return false; }
+
+  ensureWhiteBase(scr);
+
+  const tex = await mv.createTexture(canvas); // <<<< Option A: pass canvas directly
+
+  // Base-color slot (version-safe)
+  const base = scr.pbrMetallicRoughness.baseColorTexture;
+  if (base && typeof base.setTexture === 'function'){
+    base.setTexture(tex);
+  } else if (typeof scr.pbrMetallicRoughness.setBaseColorTexture === 'function'){
+    scr.pbrMetallicRoughness.setBaseColorTexture(tex);
   }
 
-  async function getScreenMaterial() {
-    await mv.updateComplete;
-    const mats = mv.model?.materials || [];
-    return mats.find(m => (m.name || '').toLowerCase() === 'screen');
+  if (emissiveOn.checked){
+    if (scr.emissiveTexture && typeof scr.emissiveTexture.setTexture === 'function'){
+      scr.emissiveTexture.setTexture(tex);
+    } else if (typeof scr.setEmissiveTexture === 'function'){
+      scr.setEmissiveTexture(tex);
+    }
+    if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([1,1,1]);
+    else scr.emissiveFactor = [1,1,1];
+  } else {
+    // turn emissive off
+    if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(null);
+    else if (typeof scr.setEmissiveTexture === 'function') scr.setEmissiveTexture(null);
+    if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([0,0,0]);
+    else scr.emissiveFactor = [0,0,0];
   }
+  return true;
+}
 
-  // Draw a fitted (contain) image into a square canvas, then apply
-  async function redrawAndApply() {
-    if (!userImageBitmap) return;
-    const size = 2048; // texture size
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d');
-
-    // background black for emissive look
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,size,size);
-
-    // Fit math with zoom + pan
-    const scaleContain = Math.min(size / userImageBitmap.width, size / userImageBitmap.height);
-    const scale = scaleContain * parseFloat(zoom.value || '1');
-    const w = Math.round(userImageBitmap.width * scale);
-    const h = Math.round(userImageBitmap.height * scale);
-    const px = parseFloat(panX.value || '0');
-    const py = parseFloat(panY.value || '0');
-    const x = Math.round((size - w)/2 + px * (size/2));
-    const y = Math.round((size - h)/2 + py * (size/2));
-
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(userImageBitmap, x, y, w, h);
-
-    await applyCanvasToScreen(canvas);
-  }
-
-  async function applyCanvasToScreen(canvas) {
-    const scr = await getScreenMaterial();
-    if (!scr) { toast('Screen material not found', true); return; }
-
-    const tex = await mv.createTexture(canvas);
-
-    // Ensure base shows true colors
-    if (scr.pbrMetallicRoughness?.setBaseColorFactor) {
-      scr.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
-    }
-
-    // Base color slot (support both APIs)
-    if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture) {
-      scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-    } else if (scr.pbrMetallicRoughness?.setBaseColorTexture) {
-      scr.pbrMetallicRoughness.setBaseColorTexture(tex);
-    }
-
-    // Emissive on/off
-    if (emissiveOn.checked) {
-      if (scr.emissiveTexture?.setTexture) {
-        scr.emissiveTexture.setTexture(tex);
-      } else if (typeof scr.setEmissiveTexture === 'function') {
-        scr.setEmissiveTexture(tex);
-      }
-      if (typeof scr.setEmissiveFactor === 'function') {
-        scr.setEmissiveFactor([1,1,1]);
-      } else {
-        scr.emissiveFactor = [1,1,1];
-      }
-    } else {
-      if (scr.emissiveTexture?.setTexture) {
-        scr.emissiveTexture.setTexture(null);
-      } else if (typeof scr.setEmissiveTexture === 'function') {
-        scr.setEmissiveTexture(null);
-      }
-      if (typeof scr.setEmissiveFactor === 'function') {
-        scr.setEmissiveFactor([0,0,0]);
-      } else {
-        scr.emissiveFactor = [0,0,0];
-      }
-    }
-
-    // Keep matte
-    if (scr.pbrMetallicRoughness) {
-      scr.pbrMetallicRoughness.metallicFactor = 0.0;
-      scr.pbrMetallicRoughness.roughnessFactor = 0.9;
-    }
-
-    clearImage.disabled = true; // enable only after real image chosen
-    toast('Screen updated ✅');
-  }
-
-  // Image picker
-  chooseImage.addEventListener('click', ()=> imageInput.click());
-  imageInput.addEventListener('change', async ()=>{
-    const f = imageInput.files?.[0];
-    if (!f) return;
-    try {
-      userImageBitmap = await createImageBitmap(f);
-      clearImage.disabled = false;
-      await redrawAndApply();
-    } catch (e) {
-      console.error(e);
-      toast('Failed to apply image. Try another file / refresh.', true);
-    }
-  });
-
-  // Clear
-  clearImage.addEventListener('click', async ()=>{
-    const scr = await getScreenMaterial();
-    if (!scr) return;
-    userImageBitmap = null;
-
-    // Clear both base color & emissive
-    if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture) {
-      scr.pbrMetallicRoughness.baseColorTexture.setTexture(null);
-    } else if (scr.pbrMetallicRoughness?.setBaseColorTexture) {
-      scr.pbrMetallicRoughness.setBaseColorTexture(null);
-    }
-    if (scr.emissiveTexture?.setTexture) {
-      scr.emissiveTexture.setTexture(null);
-    } else if (typeof scr.setEmissiveTexture === 'function') {
-      scr.setEmissiveTexture(null);
-    }
-    if (typeof scr.setEmissiveFactor === 'function') {
-      scr.setEmissiveFactor([0,0,0]);
-    } else {
-      scr.emissiveFactor = [0,0,0];
-    }
-    clearImage.disabled = true;
-    toast('Cleared');
-  });
-
-  // Zoom/Pan UI
-  function refreshZPLabels(){
-    zoomVal.textContent = `${(+zoom.value).toFixed(2)}×`;
-    panXVal.textContent = (+panX.value).toFixed(2);
-    panYVal.textContent = (+panY.value).toFixed(2);
-  }
-  [zoom,panX,panY].forEach(el => el.addEventListener('input', async ()=>{
-    refreshZPLabels();
-    if (userImageBitmap) await redrawAndApply();
-  }));
-  refreshZPLabels();
-
-  // Camera: slider Y shows 0° at front, internally add +180°
-  function applyCamera(){
-    const theta = (parseInt(ry.value,10)||0) + 180; // hidden +180°
-    const phi   = 90 - (parseInt(rx.value,10)||0);
-    const radius= 2.6 + (parseInt(pad.value,10)||0)*0.006;
-    mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
-    rxVal.textContent = `${rx.value}°`;
-    ryVal.textContent = `${ry.value}°`;
-    padVal.textContent= `${pad.value}px`;
-  }
-  [rx,ry,pad].forEach(el => el.addEventListener('input', applyCamera));
-
-  frontBtn.addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
-  resetBtn.addEventListener('click', ()=>{
-    rx.value=0; ry.value=0; pad.value=36; zoom.value=1; panX.value=0; panY.value=0;
-    refreshZPLabels(); applyCamera(); if (userImageBitmap) redrawAndApply();
-  });
-
-  // Export 720×720
-  exportBtn.addEventListener('click', async ()=>{
+// Image upload flow
+chooseImage.addEventListener('click', ()=> imageInput.click());
+imageInput.addEventListener('change', ()=>{
+  const f = imageInput.files?.[0]; if(!f) return;
+  const img = new Image();
+  img.onload = async () => {
+    currentImage = img;
+    drawToCanvas(img);
     try{
-      await mv.updateComplete;
-      const blob = await mv.toBlob({mimeType:'image/png', idealAspect:1, quality:1});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'mockup-720.png';
-      a.click();
-    }catch(e){ console.error(e); toast('Export failed', true); }
-  });
+      await applyCanvasToScreen();
+      clearBtn.disabled = false;
+      toast('Screen updated');
+    }catch(e){
+      console.error(e);
+      toast('Failed to apply image. Try another file / refresh.', 1800);
+    }
+  };
+  img.onerror = ()=> toast('Could not read image');
+  img.src = URL.createObjectURL(f);
+});
+clearBtn.addEventListener('click', async ()=>{
+  const scr = getScreenMaterial(); if(!scr) return;
+  // remove textures
+  scr.pbrMetallicRoughness.baseColorTexture?.setTexture?.(null);
+  if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(null);
+  else scr.setEmissiveTexture?.(null);
+  if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([0,0,0]); else scr.emissiveFactor=[0,0,0];
+  clearBtn.disabled = true;
+  currentImage = null;
+});
 
-  // Initial camera front-on
-  applyCamera();
+// Redraw canvas & re-apply when sliders change
+function onFitChange(){
+  zoomVal.textContent = `${(+zoom.value).toFixed(2)}×`;
+  panXVal.textContent = (+panX.value).toFixed(2);
+  panYVal.textContent = (+panY.value).toFixed(2);
+  if(!currentImage) return;
+  drawToCanvas(currentImage);
+  applyCanvasToScreen();
+}
+[zoom, panX, panY, emissiveOn].forEach(el => el.addEventListener('input', onFitChange));
 
-  // If model loads, let user know we can accept images
-  mv.addEventListener('load', ()=>{
-    toast('Model ready');
-  });
+// Camera handling
+function applyCamera(){
+  const theta = (parseInt(ryUI.value,10) || 0) + yawOffset; // hidden 180 offset
+  const phi   = 90 - (parseInt(rx.value,10) || 0);
+  const radius = 2.6 + (parseInt(pad.value,10) || 0) * 0.006;
+  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
+  rxVal.textContent  = `${rx.value}°`;
+  ryVal.textContent  = `${ryUI.value}°`;
+  padVal.textContent = `${pad.value}px`;
+}
+[rx, ryUI, pad].forEach(el => el.addEventListener('input', applyCamera));
+frontBtn.addEventListener('click', ()=>{ rx.value=0; ryUI.value=0; applyCamera(); });
+resetBtn.addEventListener('click', ()=>{ rx.value=0; ryUI.value=0; pad.value=36; applyCamera(); });
+
+// Export 720×720
+exportBtn.addEventListener('click', async ()=>{
+  try{
+    await mv.updateComplete;
+    const blob = await mv.toBlob({mimeType:'image/png', quality:1, idealAspect:1});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mockup-720.png';
+    a.click();
+  }catch(e){
+    console.error(e);
+    toast('Export failed. Try a Chromium browser.', 1800);
+  }
+});
+
+// After model loads, confirm material exists
+mv.addEventListener('load', ()=>{
+  const scr = getScreenMaterial();
+  if(!scr){
+    toast('Tip: Material "Screen" not found in GLTF');
+  }
+  applyCamera(); // initial camera (front-on look with 0° UI)
+});
 </script>
 </body>
 </html>
