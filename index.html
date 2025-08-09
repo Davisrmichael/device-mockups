@@ -3,12 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mockup Maker — iPhone (model-viewer)</title>
+<title>Mockup Maker — iPhone</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
   :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
-  *{box-sizing:border-box}
-  html,body{height:100%}
+  *{box-sizing:border-box} html,body{height:100%}
   body{
     margin:0; background:var(--bg); color:var(--ink);
     display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px;
@@ -47,8 +46,20 @@
         <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
       </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Zoom</div><input id="zoom" type="range" min="0.5" max="2.0" step="0.01" value="1.0"></div>
+        <div style="width:64px;text-align:right" id="zoomVal">1.00×</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Pan X</div><input id="panX" type="range" min="-1.0" max="1.0" step="0.01" value="0"></div>
+        <div style="width:64px;text-align:right" id="panXVal">0</div>
+      </div>
+      <div class="row" style="width:100%">
+        <div style="flex:1"><div class="hint">Pan Y</div><input id="panY" type="range" min="-1.0" max="1.0" step="0.01" value="0"></div>
+        <div style="width:64px;text-align:right" id="panYVal">0</div>
+      </div>
       <div id="status" class="msg"></div>
-      <div class="hint">Targets material named <code>Screen</code>.</div>
+      <div class="hint">Targets material named <code>Screen</code>. Image is fitted (contain) with zoom + pan controls.</div>
     </div>
 
     <div class="section">
@@ -82,7 +93,6 @@
     <div class="stage-outer">
       <div class="stage">
         <model-viewer id="mv"
-          src="iPhone-15-pro-2/iPhone-15.gltf?v=<?=Date.now()?>"
           camera-controls
           environment-image="neutral"
           exposure="1.0"
@@ -97,26 +107,32 @@
 
 <script type="module">
 const mv = document.getElementById('mv');
+// Point to your GLTF and bust cache:
+mv.src = 'iPhone-15-pro-2/iPhone-15.gltf?v=' + Date.now();
+
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
 const clearImage = document.getElementById('clearImage');
 const emissiveOn = document.getElementById('emissiveOn');
 const statusEl = document.getElementById('status');
 
+const zoom = document.getElementById('zoom'), panX = document.getElementById('panX'), panY = document.getElementById('panY');
+const zoomVal = document.getElementById('zoomVal'), panXVal = document.getElementById('panXVal'), panYVal = document.getElementById('panYVal');
+
 const rx = document.getElementById('rx'), ry = document.getElementById('ry'), pad = document.getElementById('pad');
 const rxVal = document.getElementById('rxVal'), ryVal = document.getElementById('ryVal'), padVal = document.getElementById('padVal');
 
-const BASE_Y = 180;   // face front but UI shows 0
-const BASE_X = 0;     // set 180 if your export still comes in upside-down
+const BASE_Y = 180;  // face front (UI shows 0)
+const BASE_X = 0;    // flip to 180 if your export is upside down
 
 function setMsg(text, ok=true){
   statusEl.textContent = text;
   statusEl.className = 'msg ' + (ok ? 'ok' : 'err');
   statusEl.style.display = 'block';
-  // auto-hide success after 2s
   if(ok){ setTimeout(()=>{ statusEl.style.display='none'; }, 2000); }
 }
 
+// Camera controls
 function applyCamera(){
   const theta = BASE_Y + (parseInt(ry.value,10)||0);
   const phi   = 90 - (BASE_X + (parseInt(rx.value,10)||0));
@@ -130,43 +146,96 @@ function applyCamera(){
 document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-mv.addEventListener('load', ()=>{
-  applyCamera(); // ensure front-on on first paint
+// Offscreen canvas for fit/zoom/pan
+const canvas = document.createElement('canvas');
+// Set this to your *screen UV* target pixels; tweak if needed:
+canvas.width = 1290;  // portrait-ish
+canvas.height = 2796;
+const ctx = canvas.getContext('2d');
+
+let lastImage = null;
+
+function redraw(){
+  if(!lastImage) return;
+  const z = parseFloat(zoom.value||'1');
+  const px = parseFloat(panX.value||'0'); // -1..1
+  const py = parseFloat(panY.value||'0'); // -1..1
+  zoomVal.textContent = `${z.toFixed(2)}×`;
+  panXVal.textContent = px.toFixed(2);
+  panYVal.textContent = py.toFixed(2);
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // contain fit, then apply zoom and pan
+  const img = lastImage;
+  const rImg = img.naturalWidth / img.naturalHeight;
+  const rCan = W / H;
+  let dw, dh;
+  if (rImg > rCan){ // image wider -> fit height
+    dh = H; dw = H * rImg;
+  } else {          // image taller -> fit width
+    dw = W; dh = W / rImg;
+  }
+  // apply zoom
+  dw *= z; dh *= z;
+
+  // center, then pan (-1..1 maps to half-excess)
+  const excessX = Math.max(0, dw - W);
+  const excessY = Math.max(0, dh - H);
+  const dx = (W - dw)/2 - (excessX/2) * px;
+  const dy = (H - dh)/2 - (excessY/2) * py;
+
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+async function applyCanvasToScreen(){
+  const mat = (mv.model?.materials || []).find(m => (m.name||'') === 'Screen');
+  if(!mat){ setMsg('Material "Screen" not found in model.', false); return; }
+  const tex = await mv.createTexture(canvas);
+  mat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+  mat.pbrMetallicRoughness.setBaseColorTexture(tex);
+  if(emissiveOn.checked){
+    mat.setEmissiveTexture(tex);
+    mat.setEmissiveFactor([1,1,1]);
+    mat.pbrMetallicRoughness.metallicFactor = 0.0;
+    mat.pbrMetallicRoughness.roughnessFactor = 0.9;
+  } else {
+    mat.setEmissiveTexture(null);
+    mat.setEmissiveFactor([0,0,0]);
+  }
+}
+
+zoom.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
+panX.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
+panY.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
+
+mv.addEventListener('load', async ()=>{
+  await mv.updateComplete;
+  applyCamera();
   setMsg('Model loaded.', true);
 });
 
-chooseImage.addEventListener('click', ()=> imageInput.click());
+document.getElementById('chooseImage').addEventListener('click', ()=> imageInput.click());
 
 imageInput.addEventListener('change', async ()=>{
   const f = imageInput.files?.[0];
-  if(!f){ return; }
+  if(!f) return;
   try{
     await mv.updateComplete;
 
-    // Find the Screen material by name (exact match).
-    const mat = (mv.model?.materials || []).find(m => (m.name||'') === 'Screen');
-    if(!mat){ setMsg('Material "Screen" not found in model.', false); return; }
-
-    // Create texture from the uploaded image (bitmap is efficient & preserves EXIF orientation).
-    const bmp = await createImageBitmap(f);
-    const tex = await mv.createTexture(bmp);
-
-    // Apply texture to base color; optionally emissive to keep it bright.
-    mat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
-    mat.pbrMetallicRoughness.setBaseColorTexture(tex);
-
-    if(emissiveOn.checked){
-      mat.setEmissiveTexture(tex);
-      mat.setEmissiveFactor([1,1,1]);
-      mat.pbrMetallicRoughness.metallicFactor = 0.0;
-      mat.pbrMetallicRoughness.roughnessFactor = 0.9;
-    } else {
-      mat.setEmissiveTexture(null);
-      mat.setEmissiveFactor([0,0,0]);
-    }
-
-    clearImage.disabled = false;
-    setMsg('Screen updated ✔', true);
+    // Robust img load (works across Safari/Chrome/Firefox and handles EXIF orientation via browser)
+    const img = new Image();
+    img.onload = async ()=>{
+      lastImage = img;
+      redraw();
+      await applyCanvasToScreen();
+      clearImage.disabled = true === false ? false : false; // keep simple
+      clearImage.disabled = false;
+      setMsg('Screen updated ✔', true);
+    };
+    img.onerror = ()=> setMsg('Could not read image file.', false);
+    img.src = URL.createObjectURL(f);
   }catch(err){
     console.error(err);
     setMsg('Failed to apply image. Try another file / refresh.', false);
@@ -202,9 +271,6 @@ document.getElementById('exportBtn').addEventListener('click', async ()=>{
     setMsg('Export failed. Try a Chromium browser.', false);
   }
 });
-
-// Initial camera
-applyCamera();
 </script>
 </body>
 </html>
