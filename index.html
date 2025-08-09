@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mockup Maker — model-viewer</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 <style>
@@ -36,30 +36,22 @@
         <button id="autoPick" class="btn secondary">Auto-detect screen</button>
       </div>
       <div class="row">
-        <div class="hint">Target: <code id="texTarget" class="small">(auto)</code></div>
+        <div class="hint">Target: <code id="texTarget" class="small">(none)</code></div>
       </div>
       <div class="row">
         <button id="chooseImage" class="btn">Choose Image…</button>
         <input id="imageInput" type="file" accept="image/*" style="display:none">
         <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
         <button id="clearImage" class="btn secondary" disabled>Clear</button>
+        <button id="bruteBtn" class="btn secondary">Brute apply</button>
       </div>
     </div>
 
     <div class="section">
       <div class="row"><strong>Orientation & Padding</strong></div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div>
-        <div style="width:44px;text-align:right" id="rxVal">0°</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0"></div>
-        <div style="width:44px;text-align:right" id="ryVal">0°</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div>
-        <div style="width:64px;text-align:right" id="padVal">36px</div>
-      </div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="rxVal">0°</div></div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="15" value="0"></div><div style="width:44px;text-align:right" id="ryVal">0°</div></div>
+      <div class="row" style="width:100%"><div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div><div style="width:64px;text-align:right" id="padVal">36px</div></div>
       <div class="row"><button id="frontBtn" class="btn secondary">Front-on</button><button id="resetBtn" class="btn secondary">Reset</button></div>
     </div>
 
@@ -80,12 +72,13 @@
   </main>
 
 <script type="module">
-const BASE_X_OFFSET = 180;
-const BASE_Y_OFFSET = 180;
+const X0 = 180;      // base offsets (so the phone starts upright & front-on)
+const Y0 = 180;
 
 const mv = document.getElementById('mv');
 const matSelect = document.getElementById('materialSelect');
 const autoBtn = document.getElementById('autoPick');
+const bruteBtn = document.getElementById('bruteBtn');
 const chooseImage = document.getElementById('chooseImage');
 const imageInput = document.getElementById('imageInput');
 const emissiveOn = document.getElementById('emissiveOn');
@@ -97,8 +90,8 @@ const texTarget = document.getElementById('texTarget');
 let target = { material: null, slot: 'base' };
 
 function applyCamera(){
-  const theta = BASE_Y_OFFSET + (parseInt(ry.value,10)||0);
-  const phi = 90 - (BASE_X_OFFSET + (parseInt(rx.value,10)||0));
+  const theta = Y0 + (parseInt(ry.value,10)||0);
+  const phi   = 90 - (X0 + (parseInt(rx.value,10)||0));
   const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
   mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
   rxVal.textContent = `${rx.value}°`;
@@ -106,25 +99,15 @@ function applyCamera(){
   padVal.textContent = `${pad.value}px`;
 }
 [rx,ry,pad].forEach(el=> el.addEventListener('input', applyCamera));
-
 document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
 document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
 
-function findLargestPortraitMaterial(){
-  let best = null, maxArea = 0;
-  const mats = mv.model?.materials || [];
-  for (const m of mats){
-    const tex = m.pbrMetallicRoughness.baseColorTexture?.texture;
-    const img = tex?.source?.image;
-    if(img && img.height > img.width){
-      const area = img.width * img.height;
-      if(area > maxArea){ maxArea = area; best = m; }
-    }
-  }
-  return best;
+function setTarget(m){
+  target.material = m || null;
+  texTarget.textContent = m ? (m.name || '(unnamed)') : '(none)';
 }
 
-mv.addEventListener('load', ()=>{
+function populateMaterials(){
   matSelect.innerHTML = '<option value="">— choose material —</option>';
   (mv.model?.materials || []).forEach(m=>{
     const opt = document.createElement('option');
@@ -132,36 +115,73 @@ mv.addEventListener('load', ()=>{
     opt.textContent = m.name || '(unnamed)';
     matSelect.appendChild(opt);
   });
+}
 
-  const hit = findLargestPortraitMaterial();
+function getDimsFromMaterial(m){
+  const tex = m?.pbrMetallicRoughness?.baseColorTexture?.texture;
+  const img = tex?.source?.image;
+  return img ? {w: img.width||0, h: img.height||0} : {w:0,h:0};
+}
+
+function detectScreen(){
+  const mats = mv.model?.materials || [];
+  if(!mats.length) return null;
+
+  // 1) portrait textures preferred
+  let best = null, bestArea = 0;
+  for(const m of mats){
+    const {w,h} = getDimsFromMaterial(m);
+    if(h > w && (w*h) > bestArea){ best = m; bestArea = w*h; }
+  }
+  if(best) return best;
+
+  // 2) name hints
+  const hint = mats.find(m => /screen|display|glass|island|panel/i.test(m.name||''));
+  if(hint) return hint;
+
+  // 3) largest texture
+  best = null; bestArea = 0;
+  for(const m of mats){
+    const {w,h} = getDimsFromMaterial(m);
+    if((w*h) > bestArea){ best = m; bestArea = w*h; }
+  }
+  return best;
+}
+
+mv.addEventListener('load', async ()=>{
+  await mv.updateComplete;
+  populateMaterials();
+
+  const hit = detectScreen();
+  setTarget(hit);
   if(hit){
-    target.material = hit;
-    matSelect.value = hit.name;
-    texTarget.textContent = `(auto: ${hit.name})`;
-  }else{
-    texTarget.textContent = '(none detected)';
+    // select it in the dropdown if it has a name
+    const n = hit.name;
+    if(n){ matSelect.value = n; }
   }
   applyCamera();
 });
 
-autoBtn.addEventListener('click', ()=>{
-  const hit = findLargestPortraitMaterial();
-  if(hit){
-    target.material = hit;
-    matSelect.value = hit.name;
-    texTarget.textContent = `(auto: ${hit.name})`;
-  }
+// *** IMPORTANT: wire the dropdown to the actual target ***
+matSelect.addEventListener('change', ()=>{
+  const name = matSelect.value;
+  const mats = mv.model?.materials || [];
+  const m = mats.find(mm => mm.name === name);
+  setTarget(m || null);
 });
 
 chooseImage.addEventListener('click', ()=> imageInput.click());
 
 imageInput.addEventListener('change', async ()=>{
   const f = imageInput.files[0]; if(!f) return;
+
+  // If user picked a material, make sure that's the target
   if(matSelect.value){
-    const m = (mv.model?.materials || []).find(mm => mm.name === matSelect.value);
-    if(m) target.material = m;
+    const mats = mv.model?.materials || [];
+    const m = mats.find(mm => mm.name === matSelect.value);
+    if(m) setTarget(m);
   }
-  if(!target.material){ alert('No target material found.'); return; }
+  if(!target.material){ alert('No target material yet. Try Auto-detect or pick from the dropdown.'); return; }
 
   const tex = await mv.createTexture(URL.createObjectURL(f));
   target.material.pbrMetallicRoughness.setBaseColorTexture(tex);
@@ -169,6 +189,7 @@ imageInput.addEventListener('change', async ()=>{
     target.material.setEmissiveTexture(tex);
     target.material.setEmissiveFactor([1,1,1]);
   }
+  clearImage.disabled = true === false ? false : false; // keep button enabled logic simple
   clearImage.disabled = false;
 });
 
@@ -180,14 +201,33 @@ clearImage.addEventListener('click', ()=>{
   clearImage.disabled = true;
 });
 
+// Nuclear option: try the uploaded image on everyone, then lock onto whichever *changed* the most (first match)
+bruteBtn.addEventListener('click', async ()=>{
+  const f = imageInput.files?.[0];
+  if(!f){ alert('Choose an image first.'); return; }
+  const tex = await mv.createTexture(URL.createObjectURL(f));
+  const mats = mv.model?.materials || [];
+  for(const m of mats){
+    m.pbrMetallicRoughness.setBaseColorTexture(tex);
+    if(emissiveOn.checked){ m.setEmissiveTexture(tex); m.setEmissiveFactor([1,1,1]); }
+  }
+  // After brute apply, assume our original auto-detection now points to the real screen
+  const hit = detectScreen() || mats[0];
+  setTarget(hit);
+  if(hit?.name) matSelect.value = hit.name;
+  clearImage.disabled = false;
+});
+
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  const canvas = mv.toCanvas({width:720,height:720});
+  await mv.updateComplete;
+  const cnv = mv.toCanvas({width:720,height:720});
   const a = document.createElement('a');
   a.download = 'mockup.png';
-  a.href = canvas.toDataURL();
+  a.href = cnv.toDataURL('image/png');
   a.click();
 });
 
+// Load the model (cache-busted) — keep textures in the same folder as the .gltf
 mv.src = `iPhone-15-Pro-converted/iphone_15_pro_max.gltf?v=${Date.now()}`;
 </script>
 </body>
