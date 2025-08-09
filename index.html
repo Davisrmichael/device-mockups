@@ -1,276 +1,111 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mockup Maker — iPhone</title>
-<script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
-<style>
-  :root{ --bg:#e9edf1; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px; }
-  *{box-sizing:border-box} html,body{height:100%}
-  body{
-    margin:0; background:var(--bg); color:var(--ink);
-    display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px;
-    font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-  }
-  .panel{
-    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-    box-shadow:0 8px 24px rgba(0,0,0,.06);
-    padding:16px; display:flex; flex-direction:column; gap:16px;
-    height:calc(100vh - 32px); position:sticky; top:16px; overflow:auto;
-  }
-  h1{font-size:18px; margin:0}
-  .section{border-top:1px solid var(--line); padding-top:12px; margin-top:4px}
-  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
-  .btn{appearance:none; border:none; border-radius:10px; padding:10px 12px; background:var(--btn); color:#fff; font-weight:700; cursor:pointer}
-  .btn.secondary{background:#e5e7eb; color:#111827}
-  .hint{font-size:12px; color:var(--muted)}
-  select, input[type="range"]{width:100%}
-  .stage-outer{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 8px 24px rgba(0,0,0,.06); padding:16px; display:flex; justify-content:center}
-  .stage{width:720px; height:720px; border-radius:12px; overflow:hidden; background:#e5e7eb; display:flex; align-items:center; justify-content:center}
-  model-viewer{width:720px; height:720px; --poster-color: transparent;}
-  .msg{font-size:13px; padding:8px 10px; border-radius:8px; display:none}
-  .msg.ok{background:#e6f7ee; color:#065f46}
-  .msg.err{background:#fee2e2; color:#7f1d1d}
-</style>
-</head>
-<body>
-  <aside class="panel">
-    <h1>Mockup Maker</h1>
-
-    <div class="section">
-      <div class="row"><strong>Screen Texture</strong></div>
-      <div class="row">
-        <button id="chooseImage" class="btn">Choose Image…</button>
-        <input id="imageInput" type="file" accept="image/*" style="display:none">
-        <label style="font-size:12px"><input type="checkbox" id="emissiveOn" checked> Bright (emissive)</label>
-        <button id="clearImage" class="btn secondary" disabled>Clear</button>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Zoom</div><input id="zoom" type="range" min="0.5" max="2.0" step="0.01" value="1.0"></div>
-        <div style="width:64px;text-align:right" id="zoomVal">1.00×</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Pan X</div><input id="panX" type="range" min="-1.0" max="1.0" step="0.01" value="0"></div>
-        <div style="width:64px;text-align:right" id="panXVal">0</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Pan Y</div><input id="panY" type="range" min="-1.0" max="1.0" step="0.01" value="0"></div>
-        <div style="width:64px;text-align:right" id="panYVal">0</div>
-      </div>
-      <div id="status" class="msg"></div>
-      <div class="hint">Targets material named <code>Screen</code>. Image is fitted (contain) with zoom + pan controls.</div>
-    </div>
-
-    <div class="section">
-      <div class="row"><strong>Orientation & Padding</strong></div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Rotate X (°)</div><input id="rx" type="range" min="-60" max="60" step="5" value="0"></div>
-        <div style="width:44px;text-align:right" id="rxVal">0°</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Rotate Y (°)</div><input id="ry" type="range" min="-60" max="60" step="5" value="0"></div>
-        <div style="width:44px;text-align:right" id="ryVal">0°</div>
-      </div>
-      <div class="row" style="width:100%">
-        <div style="flex:1"><div class="hint">Padding</div><input id="pad" type="range" min="0" max="220" step="2" value="36"></div>
-        <div style="width:64px;text-align:right" id="padVal">36px</div>
-      </div>
-      <div class="row">
-        <button id="frontBtn" class="btn secondary">Front-on</button>
-        <button id="resetBtn" class="btn secondary">Reset</button>
-      </div>
-      <div class="hint">Front-on uses a hidden +180° yaw so the slider shows 0° but faces the screen.</div>
-    </div>
-
-    <div class="section">
-      <div class="hint">Exports exact 720×720 PNG.</div>
-      <button id="exportBtn" class="btn">Export PNG</button>
-    </div>
-  </aside>
-
-  <main>
-    <div class="stage-outer">
-      <div class="stage">
-        <model-viewer id="mv"
-          camera-controls
-          environment-image="neutral"
-          exposure="1.0"
-          shadow-intensity="0"
-          disable-tap
-          interaction-prompt="none"
-          tone-mapping="neutral">
-        </model-viewer>
-      </div>
-    </div>
-  </main>
+<!-- Your file picker -->
+<input id="imageInput" type="file" accept="image/*">
 
 <script type="module">
-const mv = document.getElementById('mv');
-// Point to your GLTF and bust cache:
-mv.src = 'iPhone-15-pro-2/iPhone-15.gltf?v=' + Date.now();
+  const mv = document.getElementById('mv');
+  const input = document.getElementById('imageInput');
 
-const chooseImage = document.getElementById('chooseImage');
-const imageInput = document.getElementById('imageInput');
-const clearImage = document.getElementById('clearImage');
-const emissiveOn = document.getElementById('emissiveOn');
-const statusEl = document.getElementById('status');
-
-const zoom = document.getElementById('zoom'), panX = document.getElementById('panX'), panY = document.getElementById('panY');
-const zoomVal = document.getElementById('zoomVal'), panXVal = document.getElementById('panXVal'), panYVal = document.getElementById('panYVal');
-
-const rx = document.getElementById('rx'), ry = document.getElementById('ry'), pad = document.getElementById('pad');
-const rxVal = document.getElementById('rxVal'), ryVal = document.getElementById('ryVal'), padVal = document.getElementById('padVal');
-
-const BASE_Y = 180;  // face front (UI shows 0)
-const BASE_X = 0;    // flip to 180 if your export is upside down
-
-function setMsg(text, ok=true){
-  statusEl.textContent = text;
-  statusEl.className = 'msg ' + (ok ? 'ok' : 'err');
-  statusEl.style.display = 'block';
-  if(ok){ setTimeout(()=>{ statusEl.style.display='none'; }, 2000); }
-}
-
-// Camera controls
-function applyCamera(){
-  const theta = BASE_Y + (parseInt(ry.value,10)||0);
-  const phi   = 90 - (BASE_X + (parseInt(rx.value,10)||0));
-  const radius = 2.6 + (parseInt(pad.value,10)||0) * 0.006;
-  mv.cameraOrbit = `${theta}deg ${phi}deg ${radius}m`;
-  rxVal.textContent = `${rx.value}°`;
-  ryVal.textContent = `${ry.value}°`;
-  padVal.textContent = `${pad.value}px`;
-}
-[rx,ry,pad].forEach(el => el.addEventListener('input', applyCamera));
-document.getElementById('frontBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; applyCamera(); });
-document.getElementById('resetBtn').addEventListener('click', ()=>{ rx.value=0; ry.value=0; pad.value=36; applyCamera(); });
-
-// Offscreen canvas for fit/zoom/pan
-const canvas = document.createElement('canvas');
-// Set this to your *screen UV* target pixels; tweak if needed:
-canvas.width = 1290;  // portrait-ish
-canvas.height = 2796;
-const ctx = canvas.getContext('2d');
-
-let lastImage = null;
-
-function redraw(){
-  if(!lastImage) return;
-  const z = parseFloat(zoom.value||'1');
-  const px = parseFloat(panX.value||'0'); // -1..1
-  const py = parseFloat(panY.value||'0'); // -1..1
-  zoomVal.textContent = `${z.toFixed(2)}×`;
-  panXVal.textContent = px.toFixed(2);
-  panYVal.textContent = py.toFixed(2);
-
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0,0,W,H);
-
-  // contain fit, then apply zoom and pan
-  const img = lastImage;
-  const rImg = img.naturalWidth / img.naturalHeight;
-  const rCan = W / H;
-  let dw, dh;
-  if (rImg > rCan){ // image wider -> fit height
-    dh = H; dw = H * rImg;
-  } else {          // image taller -> fit width
-    dw = W; dh = W / rImg;
-  }
-  // apply zoom
-  dw *= z; dh *= z;
-
-  // center, then pan (-1..1 maps to half-excess)
-  const excessX = Math.max(0, dw - W);
-  const excessY = Math.max(0, dh - H);
-  const dx = (W - dw)/2 - (excessX/2) * px;
-  const dy = (H - dh)/2 - (excessY/2) * py;
-
-  ctx.drawImage(img, dx, dy, dw, dh);
-}
-
-async function applyCanvasToScreen(){
-  const mat = (mv.model?.materials || []).find(m => (m.name||'') === 'Screen');
-  if(!mat){ setMsg('Material "Screen" not found in model.', false); return; }
-  const tex = await mv.createTexture(canvas);
-  mat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
-  mat.pbrMetallicRoughness.setBaseColorTexture(tex);
-  if(emissiveOn.checked){
-    mat.setEmissiveTexture(tex);
-    mat.setEmissiveFactor([1,1,1]);
-    mat.pbrMetallicRoughness.metallicFactor = 0.0;
-    mat.pbrMetallicRoughness.roughnessFactor = 0.9;
-  } else {
-    mat.setEmissiveTexture(null);
-    mat.setEmissiveFactor([0,0,0]);
-  }
-}
-
-zoom.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
-panX.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
-panY.addEventListener('input', async ()=>{ redraw(); await applyCanvasToScreen(); });
-
-mv.addEventListener('load', async ()=>{
-  await mv.updateComplete;
-  applyCamera();
-  setMsg('Model loaded.', true);
-});
-
-document.getElementById('chooseImage').addEventListener('click', ()=> imageInput.click());
-
-imageInput.addEventListener('change', async ()=>{
-  const f = imageInput.files?.[0];
-  if(!f) return;
-  try{
+  // Utility: find the "Screen" material once the model has loaded
+  async function getScreenMaterial() {
     await mv.updateComplete;
-
-    // Robust img load (works across Safari/Chrome/Firefox and handles EXIF orientation via browser)
-    const img = new Image();
-    img.onload = async ()=>{
-      lastImage = img;
-      redraw();
-      await applyCanvasToScreen();
-      clearImage.disabled = true === false ? false : false; // keep simple
-      clearImage.disabled = false;
-      setMsg('Screen updated ✔', true);
-    };
-    img.onerror = ()=> setMsg('Could not read image file.', false);
-    img.src = URL.createObjectURL(f);
-  }catch(err){
-    console.error(err);
-    setMsg('Failed to apply image. Try another file / refresh.', false);
+    const mats = mv.model?.materials || [];
+    return mats.find(m => (m.name || '').toLowerCase() === 'screen');
   }
-});
 
-clearImage.addEventListener('click', async ()=>{
-  try{
-    const mat = (mv.model?.materials || []).find(m => (m.name||'') === 'Screen');
-    if(!mat){ setMsg('Material "Screen" not found.', false); return; }
-    mat.pbrMetallicRoughness.baseColorTexture?.setTexture(null);
-    mat.setEmissiveTexture(null);
-    mat.setEmissiveFactor([0,0,0]);
-    clearImage.disabled = true;
-    setMsg('Screen cleared.', true);
-  }catch(err){
-    console.error(err);
-    setMsg('Clear failed.', false);
-  }
-});
+  // Utility: draw an image file into a canvas (contain fit, centered)
+  async function fileToFittedCanvas(file, targetW=1024, targetH=1024) {
+    const bmp = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW; 
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
 
-// Export 720×720 snapshot
-document.getElementById('exportBtn').addEventListener('click', async ()=>{
-  try{
-    await mv.updateComplete;
-    const blob = await mv.toBlob({mimeType:'image/png', quality:1.0, idealAspect:1});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'mockup-720.png';
-    a.click();
-  }catch(e){
-    console.error(e);
-    setMsg('Export failed. Try a Chromium browser.', false);
+    // Fill black first (so emissive looks clean)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    // Contain fit math
+    const scale = Math.min(targetW / bmp.width, targetH / bmp.height);
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const x = Math.round((targetW - w) / 2);
+    const y = Math.round((targetH - h) / 2);
+
+    ctx.drawImage(bmp, x, y, w, h);
+    return canvas;
   }
-});
+
+  // Core: apply a canvas as texture to the Screen material (base + emissive)
+  async function applyCanvasToScreen(canvas) {
+    const scr = await getScreenMaterial();
+    if (!scr) throw new Error('Screen material not found. Make sure the material is named exactly "Screen".');
+
+    const tex = await mv.createTexture(canvas);
+
+    // Make sure the base shows true colors
+    if (scr.pbrMetallicRoughness?.setBaseColorFactor) {
+      scr.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+    }
+
+    // Base color slot (support both APIs)
+    if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture) {
+      scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
+    } else if (scr.pbrMetallicRoughness?.setBaseColorTexture) {
+      scr.pbrMetallicRoughness.setBaseColorTexture(tex);
+    }
+
+    // Emissive slot (support both APIs)
+    if (scr.emissiveTexture?.setTexture) {
+      scr.emissiveTexture.setTexture(tex);
+    } else if (typeof scr.setEmissiveTexture === 'function') {
+      scr.setEmissiveTexture(tex);
+    }
+
+    // Emissive factor (support both APIs)
+    if (typeof scr.setEmissiveFactor === 'function') {
+      scr.setEmissiveFactor([1,1,1]);
+    } else {
+      scr.emissiveFactor = [1,1,1];
+    }
+
+    // Keep it matte
+    if (scr.pbrMetallicRoughness) {
+      scr.pbrMetallicRoughness.metallicFactor = 0.0;
+      scr.pbrMetallicRoughness.roughnessFactor = 0.9;
+    }
+  }
+
+  // Wire up the file input → canvas → texture pipeline
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      // You can tweak target texture size here if you like
+      const canvas = await fileToFittedCanvas(file, 2048, 2048);
+      await applyCanvasToScreen(canvas);
+      toast('Screen updated ✅');
+    } catch (err) {
+      console.error(err);
+      toast('Failed to apply image. Try another file or refresh.', true);
+    }
+  });
+
+  // Tiny toast helper
+  function toast(msg, isErr=false) {
+    let t = document.getElementById('toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'toast';
+      Object.assign(t.style, {
+        position:'fixed', left:'50%', bottom:'24px', transform:'translateX(-50%)',
+        padding:'10px 14px', borderRadius:'10px', color:'#fff', font:'600 13px ui-sans-serif,system-ui',
+        zIndex:'99999', boxShadow:'0 8px 24px rgba(0,0,0,.25)'
+      });
+      document.body.appendChild(t);
+    }
+    t.style.background = isErr ? '#e11d48' : '#16a34a';
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 1600);
+  }
 </script>
-</body>
-</html>
