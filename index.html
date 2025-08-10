@@ -1,73 +1,85 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Device Mockups — v1</title>
-  <style>
-    :root{
-      --bg:#eef1f5; --panel:#fff; --ink:#0f172a; --muted:#64748b; --line:#e5e7eb; --btn:#111827; --radius:16px;
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-      color:var(--ink); background:var(--bg);
-      display:grid; grid-template-columns:360px 1fr; gap:16px; padding:16px;
-    }
-    .panel{
-      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-      box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:16px; display:flex; flex-direction:column; gap:16px;
-      height:calc(100vh - 32px); position:sticky; top:16px;
-    }
-    h1{font-size:18px;margin:0;display:flex;gap:8px;align-items:center}
-    .pill{font-size:11px;background:#e0ecff;color:#2563eb;padding:4px 8px;border-radius:999px;font-weight:700}
-    .section{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .btn{appearance:none;border:none;border-radius:10px;padding:10px 12px;background:var(--btn);color:#fff;font-weight:700;cursor:pointer}
-    .btn.secondary{background:#e5e7eb;color:#111827}
-    .hint{font-size:12px;color:var(--muted)}
-    input[type="file"]{display:block;width:100%}
-    label{font-size:12px;color:var(--ink);display:flex;gap:8px;align-items:center}
-    .stage-outer{
-      background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
-      box-shadow:0 8px 24px rgba(0,0,0,.06);
-      padding:16px; display:flex; justify-content:center; align-items:center;
-    }
-    #viewer{
-      width:720px; height:720px; background:#ffffff; border-radius:12px; overflow:hidden;
-    }
-    #msg{min-height:18px;font-size:12px;color:#b91c1c}
-  </style>
-</head>
-<body>
-  <aside class="panel">
-    <h1>Device Mockups <span class="pill">v1 (Three.js)</span></h1>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mockup Maker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { --pad: 16px; --bg:#e9ecef; --card:#fff; --text:#111; --muted:#6b7280; }
+      html,body { height:100%; }
+      body {
+        margin:0; background:var(--bg);
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color:var(--text);
+      }
+      .wrap {
+        display:flex; gap:24px; padding:var(--pad);
+        align-items:flex-start;
+      }
+      aside {
+        width: 320px;
+        user-select:none;
+      }
+      .hint { color:var(--muted); font-size:12px; }
+      .field { margin: 12px 0; }
+      button { cursor:pointer; }
+      #viewerCard {
+        background:var(--card);
+        border-radius:12px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.06);
+        padding: 18px;
+      }
+      #viewer {
+        width:720px;
+        height:720px;
+        border-radius:10px;
+        overflow:hidden;
+        background:#fff;
+      }
+      #msg { margin-top:8px; color:#b91c1c; min-height:18px; }
+      .row { display:flex; gap:8px; align-items:center; }
+      .stack { display:flex; flex-direction:column; gap:8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <aside>
+        <h2 style="margin:0 0 10px 0;">Mockup Maker</h2>
 
-    <div class="section">
-      <div class="row"><strong>Screenshot</strong></div>
-      <input id="file" type="file" accept="image/*">
-      <label><input id="bright" type="checkbox" checked> Make screen bright (emissive)</label>
-      <button id="clear" class="btn secondary">Clear</button>
-      <div class="hint">Tip: use a 1290×2796 iPhone screenshot for best pixel match; other sizes work too.</div>
+        <div class="stack">
+          <div class="field">
+            <div class="row">
+              <label for="file"><strong>Screen Texture</strong></label>
+            </div>
+            <div class="row">
+              <input id="file" type="file" accept="image/*" />
+              <button id="clear" type="button">Clear</button>
+            </div>
+          </div>
+
+          <label class="row" title="Use emissive so screen looks bright.">
+            <input id="bright" type="checkbox" checked />
+            <span><strong>Bright (emissive)</strong></span>
+          </label>
+          <div class="hint">
+            Replaces material named <strong>Screen</strong>. Image is applied 1:1 (no warp), auto Y-flip, and emissive by default.
+          </div>
+
+          <div class="field">
+            <div class="row"><strong>Export</strong></div>
+            <button id="export" type="button">Export 720×720 PNG</button>
+            <div class="hint">Exports exactly what you see in the 720×720 viewer.</div>
+          </div>
+
+          <div id="msg"></div>
+        </div>
+      </aside>
+
+      <main id="viewerCard">
+        <div id="viewer" aria-label="3D viewer"></div>
+      </main>
     </div>
 
-    <div class="section">
-      <div class="row"><strong>Export</strong></div>
-      <div class="hint">Exports exactly the 720×720 viewer.</div>
-      <button id="export" class="btn">Export PNG</button>
-    </div>
-
-    <div id="msg" class="hint"></div>
-  </aside>
-
-  <main class="stage-outer">
-    <div id="viewer"></div>
-  </main>
-
-  <!-- App entry (ES modules) -->
-  <script type="module" src="./js/app.js"></script>
-</body>
+    <script type="module" src="js/app.js"></script>
+  </body>
 </html>
