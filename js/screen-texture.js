@@ -1,97 +1,59 @@
-import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+// js/screen-texture.js
 
-export function makeScreenTextureManager(getMaterial) {
-  // Reusable canvas for consistent uploads
-  const CANVAS_SIZE = 1024; // square for best mip results
-  const canvas = document.createElement('canvas');
-  canvas.width = CANVAS_SIZE;
-  canvas.height = CANVAS_SIZE;
-  const ctx = canvas.getContext('2d');
+import { THREE } from './viewer.js';
 
-  function drawCover(img) {
-    const cw = CANVAS_SIZE, ch = CANVAS_SIZE;
-    ctx.clearRect(0, 0, cw, ch);
+// Finds the material named "Screen" and applies a canvas (or <img>) as both base & emissive.
+// cover + equal X/Y scale + auto Y-flip (so it isn’t upside-down).
+export async function applyCanvasToScreen(root, source, { bright = true } = {}) {
+  const sceneOrModel = root.scene || root; // allow passing gltf or scene
+  const screenMat = sceneOrModel?.traverse
+    ? findMaterial(sceneOrModel, 'Screen')
+    : null;
 
-    // auto Y-flip so it appears upright in glTF UV space
-    ctx.save();
-    ctx.translate(0, ch);
-    ctx.scale(1, -1);
+  if (!screenMat) throw new Error('Screen material not found in model');
 
-    const iw = img.naturalWidth || img.width;
-    const ih = img.naturalHeight || img.height;
+  const tex = source instanceof HTMLCanvasElement
+    ? new THREE.CanvasTexture(source)
+    : new THREE.Texture(source);
 
-    // cover (equal scale)
-    const scale = Math.max(cw / iw, ch / ih);
-    const dw = iw * scale;
-    const dh = ih * scale;
-    const dx = (cw - dw) / 2;
-    const dy = (ch - dh) / 2;
+  // keep pixels sharp-ish and correct orientation
+  tex.flipY = false;
+  tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
 
-    ctx.drawImage(img, dx, dy, dw, dh);
-    ctx.restore();
+  // Force base to white so image shows true colors
+  if (screenMat.pbrMetallicRoughness?.setBaseColorFactor) {
+    screenMat.pbrMetallicRoughness.setBaseColorFactor([1,1,1,1]);
+  } else if ('color' in screenMat) {
+    screenMat.color.set(0xffffff);
   }
 
-  function toTexture() {
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
-    tex.flipY = false; // we already flipped in canvas
-    return tex;
+  // Base-color slot (KhronosMaterialsExtension)
+  const bc = screenMat.pbrMetallicRoughness?.baseColorTexture;
+  if (bc?.setTexture) bc.setTexture(tex);
+  if (screenMat.setBaseColorTexture) screenMat.setBaseColorTexture(tex);
+
+  // Emissive
+  if (bright) {
+    if (screenMat.emissiveTexture?.setTexture) screenMat.emissiveTexture.setTexture(tex);
+    if (screenMat.setEmissiveTexture) screenMat.setEmissiveTexture(tex);
+
+    if (screenMat.setEmissiveFactor) screenMat.setEmissiveFactor([1,1,1]);
+    else if ('emissive' in screenMat) screenMat.emissive.setRGB(1,1,1);
+  } else {
+    if (screenMat.setEmissiveFactor) screenMat.setEmissiveFactor([0,0,0]);
+    else if ('emissive' in screenMat) screenMat.emissive.setRGB(0,0,0);
   }
+}
 
-  function applyTextureToMaterial(mat, tex, { bright = true } = {}) {
-    // Standard material (glTF → MeshStandardMaterial)
-    if ('map' in mat) mat.map = tex;
-
-    // Give emissive brightness if requested
-    if (bright && 'emissive' in mat) {
-      mat.emissiveMap = tex;
-      mat.emissive = new THREE.Color(0xffffff);
-      mat.emissiveIntensity = 1.0;
-    } else if ('emissiveMap' in mat) {
-      mat.emissiveMap = null;
-      mat.emissive = new THREE.Color(0x000000);
-      mat.emissiveIntensity = 1.0;
+function findMaterial(root, name) {
+  let out = null;
+  root.traverse((obj) => {
+    if (out) return;
+    if (obj.material) {
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      out = mats.find(m => m.name === name) || out;
     }
-
-    // Lower metal / raise rough for a soft, matte screen look
-    if ('metalness' in mat) mat.metalness = 0.0;
-    if ('roughness' in mat) mat.roughness = 0.9;
-
-    mat.needsUpdate = true;
-  }
-
-  async function fileToImage(file) {
-    const url = URL.createObjectURL(file);
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-      return img;
-    } finally {
-      // let GC collect later; immediate revoke can race on Safari
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-  }
-
-  return {
-    async applyFileToMaterial(file, { bright = true } = {}) {
-      const mat = getMaterial();
-      if (!mat) throw new Error('Screen material not found in model.');
-
-      const img = await fileToImage(file);
-      drawCover(img);
-      const tex = toTexture();
-      applyTextureToMaterial(mat, tex, { bright });
-    },
-
-    clear() {
-      const mat = getMaterial();
-      if (!mat) return;
-      if ('map' in mat && mat.map) { mat.map.dispose(); mat.map = null; }
-      if ('emissiveMap' in mat && mat.emissiveMap) { mat.emissiveMap.dispose(); mat.emissiveMap = null; }
-      if ('emissive' in mat) mat.emissive.set(0x000000);
-      mat.needsUpdate = true;
-    }
-  };
+  });
+  return out;
 }
