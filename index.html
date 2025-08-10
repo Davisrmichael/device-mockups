@@ -5,35 +5,31 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mockup Maker</title>
   <style>
-    :root { --panel: #f5f7fb; --ink:#0f172a; --muted:#475569; --ring:#e5e7eb; }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background:#eceff3; color: var(--ink); font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif; }
-    .wrap { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 100%; padding: 16px; }
-    aside { background: var(--panel); border:1px solid var(--ring); border-radius: 12px; padding: 16px; overflow:auto; }
-    h1 { font-size: 16px; margin: 0 0 12px; }
-    .section { margin: 14px 0 18px; }
-    label { display:block; font-weight:600; margin-bottom:8px; }
-    .row { display:flex; gap:8px; align-items:center; }
-    button, .btn {
-      appearance: none; border:1px solid var(--ring); background:white; padding:8px 12px;
-      border-radius:10px; cursor:pointer; font-weight:600;
-    }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    input[type="checkbox"] { transform: translateY(1px); }
-    .muted { color: var(--muted); font-size: 12px; }
-    .status { margin-top:10px; min-height: 20px; font-size: 12px; color: var(--muted); }
-    main { background:white; border:1px solid var(--ring); border-radius: 12px; display:grid; place-items:center; }
-    model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
-    /* hidden work canvas (kept for debugging if needed) */
-    #work { position: fixed; inset: 12px auto auto 12px; width:120px; height:auto; opacity:.08; pointer-events:none; display:none; }
+    :root { --panel:#f5f7fb; --ink:#0f172a; --muted:#475569; --ring:#e5e7eb; }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:#eceff3;color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;height:100%;padding:16px}
+    aside{background:var(--panel);border:1px solid var(--ring);border-radius:12px;padding:16px;overflow:auto}
+    h1{font-size:16px;margin:0 0 12px}
+    .section{margin:14px 0 18px}
+    label{display:block;font-weight:600;margin-bottom:8px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    button{appearance:none;border:1px solid var(--ring);background:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    input[type="checkbox"]{transform:translateY(1px)}
+    .muted{color:var(--muted);font-size:12px}
+    .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
+    main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
+    model-viewer{width:100%;height:100%;--poster-color:transparent}
+    #work{display:none}
   </style>
-  <!-- model-viewer (stable) -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
 <body>
   <div class="wrap">
     <aside>
       <h1>Mockup Maker</h1>
+
       <div class="section">
         <label>Screen Texture</label>
         <div class="row">
@@ -45,11 +41,18 @@
           <label for="bright" style="font-weight:500;margin:0;">Bright (emissive)</label>
         </div>
         <div class="muted" style="margin-top:8px;">
-          Targets material named <b>Screen</b>. Image is drawn with <b>cover</b> and equal X/Y scale.  
-          Auto Y-flip so it isn’t upside down.
+          Targets material named <b>Screen</b>. Image is drawn with <b>cover</b>, equal X/Y scale, and auto Y-flip.
         </div>
-        <div class="status" id="status">Waiting for image…</div>
       </div>
+
+      <div class="section">
+        <label>Export</label>
+        <div class="row">
+          <button id="export">Export PNG</button>
+        </div>
+      </div>
+
+      <div class="status" id="status">Waiting for image…</div>
     </aside>
 
     <main>
@@ -58,15 +61,14 @@
         exposure="1.0"
         camera-controls
         disable-zoom
-        ar
-        ar-modes="webxr scene-viewer quick-look"
         tone-mapping="neutral"
-        shadow-intensity="0">
+        shadow-intensity="0"
+        camera-orbit="180deg 90deg auto">
       </model-viewer>
     </main>
   </div>
 
-  <!-- hidden canvas sized to the real screen aspect to avoid any warping -->
+  <!-- hidden canvas to store the actual screen image -->
   <canvas id="work" width="1179" height="2556"></canvas>
 
 <script>
@@ -74,11 +76,11 @@
   const mv = document.getElementById('mv');
   const chooseBtn = document.getElementById('choose');
   const clearBtn  = document.getElementById('clear');
+  const exportBtn = document.getElementById('export');
   const brightChk = document.getElementById('bright');
   const statusEl  = document.getElementById('status');
-  const work = document.getElementById('work');
+  const work      = document.getElementById('work');
 
-  // iPhone 15 Pro logical screen pixels (portrait) – keeps correct aspect
   const SCREEN_W = 1179, SCREEN_H = 2556;
 
   function setStatus(msg, ok=true){
@@ -103,14 +105,13 @@
 
     const sw = bitmap.width;
     const sh = bitmap.height;
-    const scale = Math.max(dw / sw, dh / sh); // object-fit: cover
+    const scale = Math.max(dw / sw, dh / sh); // cover
     const tw = sw * scale;
     const th = sh * scale;
     const ox = (dw - tw) / 2;
     const oy = (dh - th) / 2;
 
     ctx.clearRect(0,0,dw,dh);
-    // Flip Y so the texture appears correctly on the model
     ctx.save();
     ctx.translate(0, dh);
     ctx.scale(1, -1);
@@ -120,44 +121,24 @@
 
   async function applyCanvasToScreen(canvas) {
     await mv.updateComplete;
-
     const scr = mv.model?.materials?.find(m => m.name === 'Screen');
     if (!scr) { setStatus('Screen material not found in model.', false); return; }
 
-    // Create a blob URL for the canvas to avoid the [object HTMLCanvasElement] fetch 404
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     const url = URL.createObjectURL(blob);
 
     try {
       const tex = await mv.createTexture(url);
-
-      // Prefer emissive for screens (brighter, unaffected by lighting)
-      const useEmissive = brightChk.checked;
-
-      if (useEmissive) {
-        if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(tex);
-        else if (scr.setEmissiveTexture)     scr.setEmissiveTexture(tex);
-        else if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
-          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
-          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
-
-        if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([1,1,1]);
-        else scr.emissiveFactor = [1,1,1];
-
-        scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
-        scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
+      if (brightChk.checked) {
+        scr.setEmissiveTexture?.(tex);
+        scr.setEmissiveFactor?.([1,1,1]);
       } else {
-        if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
-          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
-          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
+        scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
       }
-
       setStatus('✅ Screen updated.');
     } catch (err) {
       console.error(err);
-      setStatus('Failed to apply image. Try another file / refresh.', false);
+      setStatus('Failed to apply image.', false);
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -169,14 +150,12 @@
       if (!file) return;
       setStatus('Loading image…');
 
-      // Respect EXIF orientation by asking the browser to decode with it applied
       const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-
       drawCoverToCanvas(bmp, work);
       await applyCanvasToScreen(work);
     } catch (e) {
       console.error(e);
-      setStatus('Failed to load that image.', false);
+      setStatus('Failed to load image.', false);
     }
   }
 
@@ -185,14 +164,8 @@
       await mv.updateComplete;
       const scr = mv.model?.materials?.find(m => m.name === 'Screen');
       if (!scr) return;
-
-      // Remove textures safely across versions
-      if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(null);
-      if (typeof scr.setEmissiveTexture === 'function') scr.setEmissiveTexture(null);
-      const pmr = scr.pbrMetallicRoughness;
-      if (pmr?.baseColorTexture?.setTexture) pmr.baseColorTexture.setTexture(null);
-      if (pmr?.setBaseColorTexture) pmr.setBaseColorTexture(null);
-
+      scr.setEmissiveTexture?.(null);
+      scr.pbrMetallicRoughness?.setBaseColorTexture?.(null);
       setStatus('Screen cleared.');
     } catch (e) {
       console.error(e);
@@ -200,14 +173,23 @@
     }
   }
 
+  function handleExport() {
+    work.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'mockup-screen.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+    setStatus('✅ Exported.');
+  }
+
   chooseBtn.addEventListener('click', handleChoose);
-  clearBtn.addEventListener('click', handleClear);
+  clearBtn .addEventListener('click', handleClear);
+  exportBtn.addEventListener('click', handleExport);
 
   mv.addEventListener('load', () => setStatus('Model loaded. Choose an image to begin.'));
-  mv.addEventListener('error', (e) => {
-    console.error(e);
-    setStatus('Model failed to load. Check path: iPhone-15-pro-2/iPhone-15.gltf', false);
-  });
 })();
 </script>
 </body>
