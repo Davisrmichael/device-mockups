@@ -1,82 +1,61 @@
-// Pure ES-module CDN imports (works on GitHub Pages)
+// js/viewer.js  — CDN-only, ESM-safe, works on GitHub Pages
+
 import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js';
 
-export async function createViewer(container, {
-  modelUrl,
-  startYawDeg = 0,
-  enableControls = true
-} = {}) {
+export { THREE }; // let other modules reuse THREE if they want
+
+export function createViewer(canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(720, 720);
+
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xECEFF2);
+  scene.background = null;
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-  camera.position.set(0.35, 0.25, 0.9);
+  camera.position.set(0, 0, 2.2);
+  scene.add(camera);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  container.appendChild(renderer.domElement);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.enablePan = false;
+  controls.target.set(0, 0, 0);
 
-  // 720×720 viewer
-  function resize() {
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-  }
-  resize();
-  new ResizeObserver(resize).observe(container);
+  const light = new THREE.DirectionalLight(0xffffff, 1.0);
+  light.position.set(2, 3, 4);
+  scene.add(light, new THREE.AmbientLight(0xffffff, 0.35));
 
-  // Lights
-  const amb = new THREE.AmbientLight(0xffffff, 1.0);
-  scene.add(amb);
-  const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-  dir.position.set(2, 3, 4);
-  scene.add(dir);
-
-  // Load model
-  const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(modelUrl);
-  const model = gltf.scene;
-  model.rotation.y = THREE.MathUtils.degToRad(startYawDeg);
-  scene.add(model);
-
-  // Controls
-  let controls = null;
-  if (enableControls) {
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.set(0, 0.12, 0);
-  }
-
-  // Render loop
-  function tick() {
-    controls?.update();
+  function render() {
+    controls.update();
     renderer.render(scene, camera);
-    requestAnimationFrame(tick);
-  }
-  tick();
-
-  // Helper: find material by name anywhere in model
-  function findMaterialByName(name) {
-    let hit = null;
-    model.traverse(o => {
-      if (hit) return;
-      if (o.isMesh && o.material) {
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        for (const m of mats) {
-          if (m.name === name) { hit = m; break; }
-        }
-      }
-    });
-    return hit;
   }
 
-  return {
-    scene, camera, renderer, controls, model,
-    findMaterialByName
-  };
+  function resize() {
+    const s = 720; // fixed square viewport
+    renderer.setSize(s, s, false);
+    camera.aspect = 1;
+    camera.updateProjectionMatrix();
+    render();
+  }
+  window.addEventListener('resize', resize);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    render();
+  }
+  animate();
+
+  return { THREE, scene, camera, renderer, controls, render, resize };
+}
+
+export async function loadGLTF(url, scene) {
+  const loader = new GLTFLoader();
+  return new Promise((resolve, reject) => {
+    loader.load(url, (gltf) => {
+      scene.add(gltf.scene);
+      resolve(gltf);
+    }, undefined, reject);
+  });
 }
