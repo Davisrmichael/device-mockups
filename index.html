@@ -21,7 +21,8 @@
     .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
     main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
     model-viewer{width:100%;height:100%;--poster-color:transparent}
-    #work{display:none}
+    /* debug: hidden work canvas we draw into (screen only) */
+    #work{position:fixed;inset:12px auto auto 12px;width:120px;height:auto;opacity:.08;pointer-events:none;display:none}
   </style>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 </head>
@@ -49,6 +50,7 @@
         <label>Export</label>
         <div class="row">
           <button id="export">Export PNG</button>
+          <span class="muted" id="exportHint">Snapshots the viewport; falls back to screen image if needed.</span>
         </div>
       </div>
 
@@ -63,12 +65,13 @@
         disable-zoom
         tone-mapping="neutral"
         shadow-intensity="0"
-        camera-orbit="180deg 90deg auto">
+        camera-orbit="180deg 90deg auto"   <!-- start rotated 180° -->
+        >
       </model-viewer>
     </main>
   </div>
 
-  <!-- hidden canvas to store the actual screen image -->
+  <!-- hidden canvas sized to the real screen aspect to avoid any warping -->
   <canvas id="work" width="1179" height="2556"></canvas>
 
 <script>
@@ -81,6 +84,7 @@
   const statusEl  = document.getElementById('status');
   const work      = document.getElementById('work');
 
+  // iPhone 15 Pro logical screen pixels (portrait) – keeps correct aspect
   const SCREEN_W = 1179, SCREEN_H = 2556;
 
   function setStatus(msg, ok=true){
@@ -105,13 +109,14 @@
 
     const sw = bitmap.width;
     const sh = bitmap.height;
-    const scale = Math.max(dw / sw, dh / sh); // cover
+    const scale = Math.max(dw / sw, dh / sh); // object-fit: cover
     const tw = sw * scale;
     const th = sh * scale;
     const ox = (dw - tw) / 2;
     const oy = (dh - th) / 2;
 
     ctx.clearRect(0,0,dw,dh);
+    // Flip Y so the texture appears correctly on the model
     ctx.save();
     ctx.translate(0, dh);
     ctx.scale(1, -1);
@@ -121,24 +126,43 @@
 
   async function applyCanvasToScreen(canvas) {
     await mv.updateComplete;
+
     const scr = mv.model?.materials?.find(m => m.name === 'Screen');
     if (!scr) { setStatus('Screen material not found in model.', false); return; }
 
+    // Use a blob URL for the canvas to avoid [object HTMLCanvasElement] fetches
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     const url = URL.createObjectURL(blob);
 
     try {
       const tex = await mv.createTexture(url);
-      if (brightChk.checked) {
-        scr.setEmissiveTexture?.(tex);
-        scr.setEmissiveFactor?.([1,1,1]);
+
+      const useEmissive = brightChk.checked;
+
+      if (useEmissive) {
+        if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(tex);
+        else if (scr.setEmissiveTexture)     scr.setEmissiveTexture(tex);
+        else if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
+          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
+        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
+          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
+
+        if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([1,1,1]);
+        else scr.emissiveFactor = [1,1,1];
+
+        scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
+        scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
       } else {
-        scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
+        if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
+          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
+        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
+          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
       }
+
       setStatus('✅ Screen updated.');
     } catch (err) {
       console.error(err);
-      setStatus('Failed to apply image.', false);
+      setStatus('Failed to apply image. Try another file / refresh.', false);
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -155,7 +179,7 @@
       await applyCanvasToScreen(work);
     } catch (e) {
       console.error(e);
-      setStatus('Failed to load image.', false);
+      setStatus('Failed to load that image.', false);
     }
   }
 
@@ -164,8 +188,13 @@
       await mv.updateComplete;
       const scr = mv.model?.materials?.find(m => m.name === 'Screen');
       if (!scr) return;
-      scr.setEmissiveTexture?.(null);
-      scr.pbrMetallicRoughness?.setBaseColorTexture?.(null);
+
+      if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(null);
+      if (typeof scr.setEmissiveTexture === 'function') scr.setEmissiveTexture(null);
+      const pmr = scr.pbrMetallicRoughness;
+      if (pmr?.baseColorTexture?.setTexture) pmr.baseColorTexture.setTexture(null);
+      if (pmr?.setBaseColorTexture) pmr.setBaseColorTexture(null);
+
       setStatus('Screen cleared.');
     } catch (e) {
       console.error(e);
@@ -173,23 +202,45 @@
     }
   }
 
-  function handleExport() {
-    work.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'mockup-screen.png';
-      a.click();
-      URL.revokeObjectURL(url);
-    }, 'image/png');
+  async function handleExport() {
+    setStatus('Exporting…');
+    try {
+      // Best: snapshot the whole 3D view (if supported by this model-viewer build)
+      if (typeof mv.toBlob === 'function') {
+        const blob = await mv.toBlob({ mimeType: 'image/png' });
+        if (blob) return saveBlob(blob, 'mockup.png');
+      }
+      // Fallback: export just the screen image (work canvas)
+      const blob = await new Promise(r => work.toBlob(r, 'image/png'));
+      saveBlob(blob, 'mockup-screen.png');
+    } catch (e) {
+      console.error(e);
+      setStatus('Export failed.', false);
+      return;
+    }
     setStatus('✅ Exported.');
   }
 
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // UI wires
   chooseBtn.addEventListener('click', handleChoose);
   clearBtn .addEventListener('click', handleClear);
   exportBtn.addEventListener('click', handleExport);
 
   mv.addEventListener('load', () => setStatus('Model loaded. Choose an image to begin.'));
+  mv.addEventListener('error', (e) => {
+    console.error(e);
+    setStatus('Model failed to load. Check path: iPhone-15-pro-2/iPhone-15.gltf', false);
+  });
 })();
 </script>
 </body>
