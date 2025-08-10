@@ -1,241 +1,241 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Mockup Maker</title>
-  <style>
-    :root { --panel:#f5f7fb; --ink:#0f172a; --muted:#475569; --ring:#e5e7eb; }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:#eceff3;color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
-    .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;height:100%;padding:16px}
-    aside{background:var(--panel);border:1px solid var(--ring);border-radius:12px;padding:16px;overflow:auto}
-    h1{font-size:16px;margin:0 0 12px}
-    .section{margin:14px 0 18px}
-    label{display:block;font-weight:600;margin-bottom:8px}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    button{appearance:none;border:1px solid var(--ring);background:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    input[type="checkbox"]{transform:translateY(1px)}
-    .muted{color:var(--muted);font-size:12px}
-    .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
-    main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
-    .stage{width:720px;height:720px;display:grid;place-items:center}
-    model-viewer{width:720px;height:720px;--poster-color:transparent}
-    #work{display:none}
-  </style>
-  <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mockup Maker</title>
+  <style>
+    :root { --panel:#f5f7fb; --ink:#0f172a; --muted:#475569; --ring:#e5e7eb; }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:#eceff3;color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;height:100%;padding:16px}
+    aside{background:var(--panel);border:1px solid var(--ring);border-radius:12px;padding:16px;overflow:auto}
+    h1{font-size:16px;margin:0 0 12px}
+    .section{margin:14px 0 18px}
+    label{display:block;font-weight:600;margin-bottom:8px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    button{appearance:none;border:1px solid var(--ring);background:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    input[type="checkbox"]{transform:translateY(1px)}
+    .muted{color:var(--muted);font-size:12px}
+    .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
+    main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
+    .stage{width:720px;height:720px;display:grid;place-items:center}
+    model-viewer{width:720px;height:720px;--poster-color:transparent}
+    #work{display:none}
+  </style>
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <aside>
-      <h1>Mockup Maker</h1>
+  <div class="wrap">
+    <aside>
+      <h1>Mockup Maker</h1>
 
-      <div class="section">
-        <label>Screen Texture</label>
-        <div class="row">
-          <button id="choose">Choose Image…</button>
-          <button id="clear">Clear</button>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <input id="bright" type="checkbox" checked />
-          <label for="bright" style="font-weight:500;margin:0;">Bright (emissive)</label>
-        </div>
-        <div class="muted" style="margin-top:8px;">
-          Targets material <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip. Re-applies both base & emissive every time.
-        </div>
-      </div>
+      <div class="section">
+        <label>Screen Texture</label>
+        <div class="row">
+          <button id="choose">Choose Image…</button>
+          <button id="clear">Clear</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <input id="bright" type="checkbox" checked />
+          <label for="bright" style="font-weight:500;margin:0;">Bright (emissive)</label>
+        </div>
+        <div class="muted" style="margin-top:8px;">
+          Targets material <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip. Re-applies both base & emissive every time.
+        </div>
+      </div>
 
-      <div class="section">
-        <label>Export</label>
-        <div class="row">
-          <button id="export">Export 720×720 PNG</button>
-        </div>
-        <div class="muted">Exports exactly what you see in the 720×720 viewer.</div>
-      </div>
+      <div class="section">
+        <label>Export</label>
+        <div class="row">
+          <button id="export">Export 720×720 PNG</button>
+        </div>
+        <div class="muted">Exports exactly what you see in the 720×720 viewer.</div>
+      </div>
 
-      <div class="status" id="status">Waiting for image…</div>
-    </aside>
+      <div class="status" id="status">Waiting for image…</div>
+    </aside>
 
-    <main>
-      <div class="stage">
-        <model-viewer id="mv"
-          src="iPhone-15-pro-2/iPhone-15.gltf"
-          exposure="1.0"
-          camera-controls
-          disable-zoom
-          tone-mapping="neutral"
-          shadow-intensity="0"
-          camera-orbit="180deg 90deg auto">
-        </model-viewer>
-      </div>
-    </main>
-  </div>
+    <main>
+      <div class="stage">
+        <model-viewer id="mv"
+          src="iPhone-15-pro-2/iPhone-15.gltf"
+          exposure="1.0"
+          camera-controls
+          disable-zoom
+          tone-mapping="neutral"
+          shadow-intensity="0"
+          camera-orbit="180deg 90deg auto">
+        </model-viewer>
+      </div>
+    </main>
+  </div>
 
-  <!-- hidden canvas holds the correctly scaled screen image -->
-  <canvas id="work" width="1179" height="2556"></canvas>
+  <!-- hidden canvas holds the correctly scaled screen image -->
+  <canvas id="work" width="1179" height="2556"></canvas>
 
 <script>
 (() => {
-  const mv = document.getElementById('mv');
-  const chooseBtn = document.getElementById('choose');
-  const clearBtn  = document.getElementById('clear');
-  const exportBtn = document.getElementById('export');
-  const brightChk = document.getElementById('bright');
-  const statusEl  = document.getElementById('status');
-  const work      = document.getElementById('work');
+  const mv = document.getElementById('mv');
+  const chooseBtn = document.getElementById('choose');
+  const clearBtn  = document.getElementById('clear');
+  const exportBtn = document.getElementById('export');
+  const brightChk = document.getElementById('bright');
+  const statusEl  = document.getElementById('status');
+  const work      = document.getElementById('work');
 
-  // iPhone 15 Pro logical screen pixels (portrait)
-  const SCREEN_W = 1179, SCREEN_H = 2556;
+  // iPhone 15 Pro logical screen pixels (portrait)
+  const SCREEN_W = 1179, SCREEN_H = 2556;
 
-  function setStatus(msg, ok=true){
-    statusEl.textContent = msg;
-    statusEl.style.color = ok ? '#475569' : '#b91c1c';
-  }
+  function setStatus(msg, ok=true){
+    statusEl.textContent = msg;
+    statusEl.style.color = ok ? '#475569' : '#b91c1c';
+  }
 
-  async function pickFile() {
-    return new Promise(resolve => {
-      const i = document.createElement('input');
-      i.type = 'file';
-      i.accept = 'image/*';
-      i.onchange = () => resolve(i.files && i.files[0]);
-      i.click();
-    });
-  }
+  async function pickFile() {
+    return new Promise(resolve => {
+      const i = document.createElement('input');
+      i.type = 'file';
+      i.accept = 'image/*';
+      i.onchange = () => resolve(i.files && i.files[0]);
+      i.click();
+    });
+  }
 
-  function drawCoverToCanvas(bitmap, canvas) {
-    const ctx = canvas.getContext('2d');
-    const dw = canvas.width = SCREEN_W;
-    const dh = canvas.height = SCREEN_H;
+  function drawCoverToCanvas(bitmap, canvas) {
+    const ctx = canvas.getContext('2d');
+    const dw = canvas.width = SCREEN_W;
+    const dh = canvas.height = SCREEN_H;
 
-    const sw = bitmap.width;
-    const sh = bitmap.height;
-    const scale = Math.max(dw / sw, dh / sh); // object-fit: cover
-    const tw = sw * scale;
-    const th = sh * scale;
-    const ox = (dw - tw) / 2;
-    const oy = (dh - th) / 2;
+    const sw = bitmap.width;
+    const sh = bitmap.height;
+    const scale = Math.max(dw / sw, dh / sh); // object-fit: cover
+    const tw = sw * scale;
+    const th = sh * scale;
+    const ox = (dw - tw) / 2;
+    const oy = (dh - th) / 2;
 
-    ctx.clearRect(0,0,dw,dh);
-    // Flip Y so the texture appears correctly on the model
-    ctx.save();
-    ctx.translate(0, dh);
-    ctx.scale(1, -1);
-    ctx.drawImage(bitmap, ox, oy, tw, th);
-    ctx.restore();
-  }
+    ctx.clearRect(0,0,dw,dh);
+    // Flip Y so the texture appears correctly on the model
+    ctx.save();
+    ctx.translate(0, dh);
+    ctx.scale(1, -1);
+    ctx.drawImage(bitmap, ox, oy, tw, th);
+    ctx.restore();
+  }
 
-  async function applyCanvasToScreen(canvas) {
-    await mv.updateComplete;
+  async function applyCanvasToScreen(canvas) {
+    await mv.updateComplete;
 
-    const scr = mv.model?.materials?.find(m => m.name === 'Screen');
-    if (!scr) { setStatus('Screen material not found in model.', false); return; }
+    const scr = mv.model?.materials?.find(m => m.name === 'Screen');
+    if (!scr) { setStatus('Screen material not found in model.', false); return; }
 
-    try {
-      // Create texture directly from the canvas (no blob URL, no revoke timing)
-      const tex = await mv.createTexture(canvas);
+    try {
+      // Create texture directly from the canvas (no blob URL, no revoke timing)
+      const tex = await mv.createTexture(canvas);
 
-      // Force-refresh: clear then set again to avoid stale bindings
-      scr.setEmissiveTexture?.(null);
-      scr.pbrMetallicRoughness?.baseColorTexture?.setTexture?.(null);
+      // Force-refresh: clear then set again to avoid stale bindings
+      scr.setEmissiveTexture?.(null);
+      scr.pbrMetallicRoughness?.baseColorTexture?.setTexture?.(null);
 
-      // Always set BOTH baseColor and emissive so whichever the shader uses, we’re covered
-      scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
-      if (brightChk.checked) {
-        scr.setEmissiveTexture?.(tex);
-        scr.setEmissiveFactor?.([1,1,1]);
-      } else {
-        scr.setEmissiveTexture?.(null);
-      }
+      // Always set BOTH baseColor and emissive so whichever the shader uses, we’re covered
+      scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
+      if (brightChk.checked) {
+        scr.setEmissiveTexture?.(tex);
+        scr.setEmissiveFactor?.([1,1,1]);
+      } else {
+        scr.setEmissiveTexture?.(null);
+      }
 
-      // Keep it non-metallic and fairly rough so reflections don’t wash the image
-      scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
-      scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
+      // Keep it non-metallic and fairly rough so reflections don’t wash the image
+      scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
+      scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
 
-      setStatus('✅ Screen updated.');
-    } catch (err) {
-      console.error(err);
-      setStatus('Failed to apply image. Try another file / refresh.', false);
-    }
-  }
+      setStatus('✅ Screen updated.');
+    } catch (err) {
+      console.error(err);
+      setStatus('Failed to apply image. Try another file / refresh.', false);
+    }
+  }
 
-  async function handleChoose() {
-    try {
-      const file = await pickFile();
-      if (!file) return;
-      setStatus('Loading image…');
+  async function handleChoose() {
+    try {
+      const file = await pickFile();
+      if (!file) return;
+      setStatus('Loading image…');
 
-      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      drawCoverToCanvas(bmp, work);
-      await applyCanvasToScreen(work);
-    } catch (e) {
-      console.error(e);
-      setStatus('Failed to load that image.', false);
-    }
-  }
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      drawCoverToCanvas(bmp, work);
+      await applyCanvasToScreen(work);
+    } catch (e) {
+      console.error(e);
+      setStatus('Failed to load that image.', false);
+    }
+  }
 
-  async function handleClear() {
-    try {
-      await mv.updateComplete;
-      const scr = mv.model?.materials?.find(m => m.name === 'Screen');
-      if (!scr) return;
+  async function handleClear() {
+    try {
+      await mv.updateComplete;
+      const scr = mv.model?.materials?.find(m => m.name === 'Screen');
+      if (!scr) return;
 
-      scr.setEmissiveTexture?.(null);
-      const pmr = scr.pbrMetallicRoughness;
-      pmr?.baseColorTexture?.setTexture?.(null);
-      pmr?.setBaseColorTexture?.(null);
+      scr.setEmissiveTexture?.(null);
+      const pmr = scr.pbrMetallicRoughness;
+      pmr?.baseColorTexture?.setTexture?.(null);
+      pmr?.setBaseColorTexture?.(null);
 
-      setStatus('Screen cleared.');
-    } catch (e) {
-      console.error(e);
-      setStatus('Could not clear screen.', false);
-    }
-  }
+      setStatus('Screen cleared.');
+    } catch (e) {
+      console.error(e);
+      setStatus('Could not clear screen.', false);
+    }
+  }
 
-  // Export the visible 720×720 viewport
-  async function handleExport() {
-    try {
-      setStatus('Exporting…');
-      if (typeof mv.toBlob !== 'function') {
-        setStatus('Export not supported in this browser/build.', false);
-        return;
-      }
-      const snap = await mv.toBlob({ mimeType: 'image/png' });
-      if (!snap) throw new Error('toBlob returned null');
+  // Export the visible 720×720 viewport
+  async function handleExport() {
+    try {
+      setStatus('Exporting…');
+      if (typeof mv.toBlob !== 'function') {
+        setStatus('Export not supported in this browser/build.', false);
+        return;
+      }
+      const snap = await mv.toBlob({ mimeType: 'image/png' });
+      if (!snap) throw new Error('toBlob returned null');
 
-      // Ensure final file is exactly 720×720
-      const img = await createImageBitmap(snap);
-      const out = document.createElement('canvas');
-      out.width = 720; out.height = 720;
-      const ctx = out.getContext('2d');
-      const sw = img.width, sh = img.height;
-      const scale = Math.max(720 / sw, 720 / sh);
-      const tw = sw * scale, th = sh * scale;
-      const ox = (720 - tw) / 2, oy = (720 - th) / 2;
-      ctx.drawImage(img, ox, oy, tw, th);
+      // Ensure final file is exactly 720×720
+      const img = await createImageBitmap(snap);
+      const out = document.createElement('canvas');
+      out.width = 720; out.height = 720;
+      const ctx = out.getContext('2d');
+      const sw = img.width, sh = img.height;
+      const scale = Math.max(720 / sw, 720 / sh);
+      const tw = sw * scale, th = sh * scale;
+      const ox = (720 - tw) / 2, oy = (720 - th) / 2;
+      ctx.drawImage(img, ox, oy, tw, th);
 
-      out.toBlob((blob)=>{
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'mockup-720.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-        setStatus('✅ Exported 720×720.');
-      }, 'image/png');
-    } catch (e) {
-      console.error(e);
-      setStatus('Export failed. Try Chrome/Edge and ensure model-viewer loaded.', false);
-    }
-  }
+      out.toBlob((blob)=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'mockup-720.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('✅ Exported 720×720.');
+      }, 'image/png');
+    } catch (e) {
+      console.error(e);
+      setStatus('Export failed. Try Chrome/Edge and ensure model-viewer loaded.', false);
+    }
+  }
 
-  chooseBtn.addEventListener('click', handleChoose);
-  clearBtn .addEventListener('click', handleClear);
-  exportBtn.addEventListener('click', handleExport);
+  chooseBtn.addEventListener('click', handleChoose);
+  clearBtn .addEventListener('click', handleClear);
+  exportBtn.addEventListener('click', handleExport);
 
-  mv.addEventListener('load', () => setStatus('Model loaded. Choose an image to begin.'));
-  mv.addEventListener('error', (e) => {
-    console.error(e);
-    setStatus('Model failed to load. Check path: iPhone-15-pro-2/iPhone-15.gltf', false);
-  });
+  mv.addEventListener('load', () => setStatus('Model loaded. Choose an image to begin.'));
+  mv.addEventListener('error', (e) => {
+    console.error(e);
+    setStatus('Model failed to load. Check path: iPhone-15-pro-2/iPhone-15.gltf', false);
+  });
 })();
 </script>
 </body>
