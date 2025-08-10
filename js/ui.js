@@ -1,27 +1,50 @@
+// js/ui.js
+// Wires the simple UI to callbacks supplied by app.js
 export function wireUI({ onChooseFile, onClear, onExport }) {
-  const file = document.getElementById('file');
-  const clearBtn = document.getElementById('clear');
-  const exportBtn = document.getElementById('export');
+  const file   = document.getElementById('file');
+  const clear  = document.getElementById('clear');
+  const exp    = document.getElementById('export');
   const bright = document.getElementById('bright');
+  const msg    = document.getElementById('msg');
 
-  if (!file || !clearBtn || !exportBtn || !bright) {
-    console.error("UI elements not found. Check index.html IDs.");
-    return;
+  if (!file || !clear || !exp || !bright) {
+    if (msg) msg.textContent = 'UI not found – check element IDs (file/clear/export/bright).';
+    throw new Error('UI elements missing');
   }
 
-  file.addEventListener('change', e => {
-    const f = e.target.files[0];
-    if (f) {
-      onChooseFile(f, bright.checked);
+  // File choose
+  file.addEventListener('change', async () => {
+    const f = file.files?.[0];
+    if (!f) return;
+    try {
+      await onChooseFile?.(f, !!bright.checked);
+      msg.textContent = '';
+    } catch (e) {
+      console.error(e);
+      msg.textContent = e?.message || 'Failed to apply image.';
     }
   });
 
-  clearBtn.addEventListener('click', () => {
-    onClear();
-    file.value = ''; // reset file input
+  // Clear
+  clear.addEventListener('click', async () => {
+    try {
+      await onClear?.();
+      file.value = ''; // reset chooser
+      msg.textContent = '';
+    } catch (e) {
+      console.error(e);
+      msg.textContent = 'Failed to clear.';
+    }
   });
 
-  exportBtn.addEventListener('click', () => {
-    onExport();
+  // Export
+  exp.addEventListener('click', async () => {
+    try {
+      await onExport?.();
+      // message handled in app.js on success
+    } catch (e) {
+      console.error(e);
+      msg.textContent = 'Export failed.';
+    }
   });
 }
