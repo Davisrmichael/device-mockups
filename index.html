@@ -2,241 +2,333 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mockup Maker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --panel:#f5f7fb; --ink:#0f172a; --muted:#475569; --ring:#e5e7eb; }
-    *{box-sizing:border-box}
-    html,body{height:100%;margin:0;background:#eceff3;color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif}
-    .wrap{display:grid;grid-template-columns:320px 1fr;gap:16px;height:100%;padding:16px}
-    aside{background:var(--panel);border:1px solid var(--ring);border-radius:12px;padding:16px;overflow:auto}
-    h1{font-size:16px;margin:0 0 12px}
-    .section{margin:14px 0 18px}
-    label{display:block;font-weight:600;margin-bottom:8px}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    button{appearance:none;border:1px solid var(--ring);background:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:600}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    input[type="checkbox"]{transform:translateY(1px)}
-    .muted{color:var(--muted);font-size:12px}
-    .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
-    main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
-    .stage{width:720px;height:720px;display:grid;place-items:center}
-    model-viewer{width:720px;height:720px;--poster-color:transparent}
-    #work{display:none}
+    :root { --panel: 320px; --view: 720px; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#e9ecef; color:#111; }
+    .wrap { display:flex; gap:24px; padding:24px; box-sizing:border-box; }
+    aside {
+      width: var(--panel); min-width: var(--panel); background:#fff; border:1px solid #dcdfe3; border-radius:12px; padding:16px 16px 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      height: fit-content;
+    }
+    h1 { margin:0 0 12px; font-size:18px; font-weight:700; }
+    fieldset { border:0; padding:0; margin:0 0 18px; }
+    legend { font-weight:600; margin-bottom:8px; }
+    label { display:block; font-size:12px; color:#555; margin:10px 0 6px; }
+    .row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+    small.muted { color:#6b7280; display:block; margin-top:6px; }
+    button, input[type="file"]::file-selector-button {
+      font: inherit; border:1px solid #c9ced6; background:#fff; border-radius:8px; padding:8px 12px; cursor:pointer;
+    }
+    button.primary { background:#111; color:#fff; border-color:#111; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .viewer {
+      width: var(--view); height: var(--view); background:#fff; border:1px solid #dcdfe3; border-radius:12px;
+      position: relative; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    canvas { display:block; width: 100%; height: 100%; }
+    .note { color:#b42318; font-size:12px; margin-top:10px; min-height:16px; }
   </style>
-  <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 </head>
 <body>
   <div class="wrap">
     <aside>
       <h1>Mockup Maker</h1>
 
-      <div class="section">
-        <label>Screen Texture</label>
+      <fieldset>
+        <legend>Screen Texture</legend>
         <div class="row">
-          <button id="choose">Choose Image…</button>
-          <button id="clear">Clear</button>
+          <input id="file" type="file" accept="image/*" />
+          <button id="clear" type="button">Clear</button>
         </div>
-        <div class="row" style="margin-top:8px">
+        <div class="row">
           <input id="bright" type="checkbox" checked />
-          <label for="bright" style="font-weight:500;margin:0;">Bright (emissive)</label>
+          <label for="bright" style="margin:0">Bright (emissive)</label>
         </div>
-        <div class="muted" style="margin-top:8px;">
-          Targets material <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip. Re-applies both base & emissive every time.
-        </div>
-      </div>
+        <small class="muted">
+          Targets material named <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip (GLTF safe). Re-applies both base &amp; emissive every time.
+        </small>
+      </fieldset>
 
-      <div class="section">
-        <label>Export</label>
-        <div class="row">
-          <button id="export">Export 720×720 PNG</button>
-        </div>
-        <div class="muted">Exports exactly what you see in the 720×720 viewer.</div>
-      </div>
+      <fieldset>
+        <legend>Export</legend>
+        <button id="export" class="primary" type="button">Export 720×720 PNG</button>
+        <small class="muted">Exports exactly what you see in the 720×720 viewer.</small>
+      </fieldset>
 
-      <div class="status" id="status">Waiting for image…</div>
+      <div id="msg" class="note"></div>
     </aside>
 
-    <main>
-      <div class="stage">
-        <model-viewer id="mv"
-          src="iPhone-15-pro-2/iPhone-15.gltf"
-          exposure="1.0"
-          camera-controls
-          disable-zoom
-          tone-mapping="neutral"
-          shadow-intensity="0"
-          camera-orbit="180deg 90deg auto">
-        </model-viewer>
-      </div>
-    </main>
+    <div class="viewer" id="view"></div>
   </div>
 
-  <!-- hidden canvas holds the correctly scaled screen image -->
-  <canvas id="work" width="1179" height="2556"></canvas>
+  <!-- Three.js + loaders (r152) -->
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
 
-<script>
-(() => {
-  const mv = document.getElementById('mv');
-  const chooseBtn = document.getElementById('choose');
-  const clearBtn  = document.getElementById('clear');
-  const exportBtn = document.getElementById('export');
-  const brightChk = document.getElementById('bright');
-  const statusEl  = document.getElementById('status');
-  const work      = document.getElementById('work');
+  <script>
+  (async () => {
+    // ---- DOM
+    const ui = {
+      view: document.getElementById('view'),
+      file: document.getElementById('file'),
+      clear: document.getElementById('clear'),
+      bright: document.getElementById('bright'),
+      exportBtn: document.getElementById('export'),
+      msg: document.getElementById('msg')
+    };
 
-  // iPhone 15 Pro logical screen pixels (portrait)
-  const SCREEN_W = 1179, SCREEN_H = 2556;
+    const showMsg = (t, isErr=false) => {
+      ui.msg.textContent = t || '';
+      ui.msg.style.color = isErr ? '#b42318' : '#555';
+    };
 
-  function setStatus(msg, ok=true){
-    statusEl.textContent = msg;
-    statusEl.style.color = ok ? '#475569' : '#b91c1c';
-  }
+    // ---- Three.js scene
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe9ecef);
 
-  async function pickFile() {
-    return new Promise(resolve => {
-      const i = document.createElement('input');
-      i.type = 'file';
-      i.accept = 'image/*';
-      i.onchange = () => resolve(i.files && i.files[0]);
-      i.click();
-    });
-  }
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    camera.position.set(0, 0.42, 1.35);
 
-  function drawCoverToCanvas(bitmap, canvas) {
-    const ctx = canvas.getContext('2d');
-    const dw = canvas.width = SCREEN_W;
-    const dh = canvas.height = SCREEN_H;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(720, 720, false);
+    ui.view.appendChild(renderer.domElement);
 
-    const sw = bitmap.width;
-    const sh = bitmap.height;
-    const scale = Math.max(dw / sw, dh / sh); // object-fit: cover
-    const tw = sw * scale;
-    const th = sh * scale;
-    const ox = (dw - tw) / 2;
-    const oy = (dh - th) / 2;
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 0.42, 0);
 
-    ctx.clearRect(0,0,dw,dh);
-    // Flip Y so the texture appears correctly on the model
-    ctx.save();
-    ctx.translate(0, dh);
-    ctx.scale(1, -1);
-    ctx.drawImage(bitmap, ox, oy, tw, th);
-    ctx.restore();
-  }
+    // Light, soft and neutral
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b0b0, 0.8);
+    scene.add(hemi);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(1, 2, 2);
+    scene.add(dir);
 
-  async function applyCanvasToScreen(canvas) {
-    await mv.updateComplete;
+    // Root for the phone; we can rotate this 180°
+    const phoneRoot = new THREE.Group();
+    scene.add(phoneRoot);
 
-    const scr = mv.model?.materials?.find(m => m.name === 'Screen');
-    if (!scr) { setStatus('Screen material not found in model.', false); return; }
+    // ---- Load the model
+    const loader = new THREE.GLTFLoader();
+    const MODEL_PATH = 'iPhone-15-pro-2/iPhone-15.gltf';
+
+    let screenMaterial = null;
+
+    function findScreenMaterial(root) {
+      let mat = null;
+      root.traverse((obj) => {
+        if (obj.isMesh && obj.material) {
+          // Handle arrays and single material
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) {
+            if (m && m.name === 'Screen') {
+              mat = m;
+              break;
+            }
+          }
+        }
+      });
+      return mat;
+    }
 
     try {
-      // Create texture directly from the canvas (no blob URL, no revoke timing)
-      const tex = await mv.createTexture(canvas);
+      const gltf = await loader.loadAsync(MODEL_PATH);
+      const model = gltf.scene || gltf.scenes[0];
+      model.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; }});
+      phoneRoot.add(model);
 
-      // Force-refresh: clear then set again to avoid stale bindings
-      scr.setEmissiveTexture?.(null);
-      scr.pbrMetallicRoughness?.baseColorTexture?.setTexture?.(null);
+      // Start spun 180° around Y so it faces “front-on”
+      phoneRoot.rotation.y = Math.PI;
 
-      // Always set BOTH baseColor and emissive so whichever the shader uses, we’re covered
-      scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
-      if (brightChk.checked) {
-        scr.setEmissiveTexture?.(tex);
-        scr.setEmissiveFactor?.([1,1,1]);
+      // Find the "Screen" material once
+      screenMaterial = findScreenMaterial(model);
+
+      if (!screenMaterial) {
+        showMsg('Screen material not found in model.', true);
       } else {
-        scr.setEmissiveTexture?.(null);
+        showMsg('Model ready. Choose an image to apply.');
       }
-
-      // Keep it non-metallic and fairly rough so reflections don’t wash the image
-      scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
-      scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
-
-      setStatus('✅ Screen updated.');
     } catch (err) {
       console.error(err);
-      setStatus('Failed to apply image. Try another file / refresh.', false);
+      showMsg('Failed to load model. Check path iPhone-15-pro-2/iPhone-15.gltf', true);
     }
-  }
 
-  async function handleChoose() {
-    try {
-      const file = await pickFile();
-      if (!file) return;
-      setStatus('Loading image…');
+    // ---- Texture pipeline
 
-      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-      drawCoverToCanvas(bmp, work);
-      await applyCanvasToScreen(work);
-    } catch (e) {
-      console.error(e);
-      setStatus('Failed to load that image.', false);
+    // Draw an image to a square canvas with "cover" fit and equal X/Y scale
+    function drawCoverToCanvas(image, size = 2048) {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, size, size);
+
+      const imgW = image.naturalWidth || image.width;
+      const imgH = image.naturalHeight || image.height;
+      if (!imgW || !imgH) return c;
+
+      // cover fit
+      const scale = Math.max(size / imgW, size / imgH); // equal X/Y scale
+      const w = Math.round(imgW * scale);
+      const h = Math.round(imgH * scale);
+      const x = Math.round((size - w) / 2);
+      const y = Math.round((size - h) / 2);
+
+      ctx.drawImage(image, x, y, w, h);
+      return c;
     }
-  }
 
-  async function handleClear() {
-    try {
-      await mv.updateComplete;
-      const scr = mv.model?.materials?.find(m => m.name === 'Screen');
-      if (!scr) return;
-
-      scr.setEmissiveTexture?.(null);
-      const pmr = scr.pbrMetallicRoughness;
-      pmr?.baseColorTexture?.setTexture?.(null);
-      pmr?.setBaseColorTexture?.(null);
-
-      setStatus('Screen cleared.');
-    } catch (e) {
-      console.error(e);
-      setStatus('Could not clear screen.', false);
+    // Build a three.js texture from an <img> (with GLTF-safe flags)
+    function textureFromImage(image) {
+      const canvas = drawCoverToCanvas(image);
+      // Convert to data URL before creating three texture (handles any CORS on <img>)
+      const url = canvas.toDataURL('image/png');
+      const tex = new THREE.TextureLoader().load(url);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      // GLTF materials expect flipY = false
+      tex.flipY = false;
+      tex.needsUpdate = true;
+      return tex;
     }
-  }
 
-  // Export the visible 720×720 viewport
-  async function handleExport() {
-    try {
-      setStatus('Exporting…');
-      if (typeof mv.toBlob !== 'function') {
-        setStatus('Export not supported in this browser/build.', false);
+    // Apply image to screen material (both base color map & emissive map)
+    function applyTextureToScreen(tex) {
+      if (!screenMaterial) {
+        showMsg('Screen material not found in model.', true);
         return;
       }
-      const snap = await mv.toBlob({ mimeType: 'image/png' });
-      if (!snap) throw new Error('toBlob returned null');
+      // Ensure neutral PBR so image looks right
+      if (screenMaterial.isMeshStandardMaterial) {
+        screenMaterial.metalness = 0.0;
+        screenMaterial.roughness = 0.9;
+      }
 
-      // Ensure final file is exactly 720×720
-      const img = await createImageBitmap(snap);
-      const out = document.createElement('canvas');
-      out.width = 720; out.height = 720;
-      const ctx = out.getContext('2d');
-      const sw = img.width, sh = img.height;
-      const scale = Math.max(720 / sw, 720 / sh);
-      const tw = sw * scale, th = sh * scale;
-      const ox = (720 - tw) / 2, oy = (720 - th) / 2;
-      ctx.drawImage(img, ox, oy, tw, th);
+      // Base color (albedo) — set white base so colors are unchanged
+      screenMaterial.color?.set(0xffffff);
+      screenMaterial.map = tex;
 
-      out.toBlob((blob)=>{
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'mockup-720.png';
-        document.body.appendChild(a); a.click(); a.remove();
-        URL.revokeObjectURL(url);
-        setStatus('✅ Exported 720×720.');
-      }, 'image/png');
-    } catch (e) {
-      console.error(e);
-      setStatus('Export failed. Try Chrome/Edge and ensure model-viewer loaded.', false);
+      // Emissive (optional bright mode)
+      if (ui.bright.checked) {
+        screenMaterial.emissive?.set(0xffffff);
+        screenMaterial.emissiveMap = tex;
+        screenMaterial.emissiveIntensity = 1.0;
+      } else {
+        screenMaterial.emissiveMap = null;
+        screenMaterial.emissive?.set(0x000000);
+        screenMaterial.emissiveIntensity = 1.0;
+      }
+
+      screenMaterial.needsUpdate = true;
+      showMsg('Applied image to Screen.');
+      renderOnce();
     }
-  }
 
-  chooseBtn.addEventListener('click', handleChoose);
-  clearBtn .addEventListener('click', handleClear);
-  exportBtn.addEventListener('click', handleExport);
+    // ---- Handlers
 
-  mv.addEventListener('load', () => setStatus('Model loaded. Choose an image to begin.'));
-  mv.addEventListener('error', (e) => {
-    console.error(e);
-    setStatus('Model failed to load. Check path: iPhone-15-pro-2/iPhone-15.gltf', false);
-  });
-})();
-</script>
+    // Apply from file input
+    ui.file.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const url = URL.createObjectURL(f);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const tex = textureFromImage(img);
+          applyTextureToScreen(tex);
+        };
+        img.onerror = (err) => {
+          console.error(err);
+          showMsg('Failed to load image. Try another file.', true);
+        };
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+      } catch (err) {
+        console.error(err);
+        showMsg('Failed to apply image. Try another file / refresh.', true);
+      }
+    });
+
+    // Bright toggle re-applies current map if present
+    ui.bright.addEventListener('change', () => {
+      if (!screenMaterial) return;
+      const current = screenMaterial.map || screenMaterial.emissiveMap;
+      if (current) applyTextureToScreen(current);
+      else showMsg('No image on Screen yet.');
+    });
+
+    // Clear maps
+    ui.clear.addEventListener('click', () => {
+      if (!screenMaterial) return;
+      screenMaterial.map = null;
+      screenMaterial.emissiveMap = null;
+      screenMaterial.color?.set(0x000000);
+      screenMaterial.emissive?.set(0x000000);
+      screenMaterial.needsUpdate = true;
+      ui.file.value = '';
+      showMsg('Cleared screen texture.');
+      renderOnce();
+    });
+
+    // Export exactly the 720×720 viewport
+    ui.exportBtn.addEventListener('click', async () => {
+      // Ensure the renderer is at 720×720 device pixels (not just CSS)
+      const size = 720;
+      const prev = renderer.getSize(new THREE.Vector2());
+      const prevPR = renderer.getPixelRatio();
+
+      renderer.setPixelRatio(1);
+      renderer.setSize(size, size, false);
+      controls.update();
+      renderer.render(scene, camera);
+
+      // Copy to a clean 720×720 2D canvas & download
+      const out = document.createElement('canvas');
+      out.width = out.height = size;
+      const ctx = out.getContext('2d');
+      ctx.drawImage(renderer.domElement, 0, 0, size, size);
+
+      out.toBlob((blob) => {
+        const a = document.createElement('a');
+        a.download = 'mockup-720.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, 'image/png');
+
+      // Restore renderer state & render again for UI
+      renderer.setPixelRatio(prevPR);
+      renderer.setSize(prev.x, prev.y, false);
+      renderOnce();
+    });
+
+    // ---- Render loop
+    function renderOnce() {
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Make sure canvas matches CSS size exactly (720×720)
+    const resizeObserver = new ResizeObserver(() => {
+      const rect = ui.view.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height, false);
+      renderOnce();
+    });
+    resizeObserver.observe(ui.view);
+
+  })();
+  </script>
 </body>
 </html>
