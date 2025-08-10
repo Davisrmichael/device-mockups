@@ -1,14 +1,14 @@
-// js/app.js
 import { createViewer } from './viewer.js';
 import { wireUI } from './ui.js';
 import { makeScreenTextureManager } from './screen-texture.js';
 import { makeExporter } from './export-viewport.js';
 
-// Your model path (repo layout)
+// Adjust to your repo location
 const MODEL_PATH = 'iPhone-15-pro-2/iPhone-15.gltf';
 
-const container = document.getElementById('viewer');
-const msg = document.getElementById('msg');
+const qs = (id) => document.getElementById(id);
+const container = qs('viewer');
+const msg = qs('msg');
 
 let viewer;
 
@@ -16,25 +16,18 @@ let viewer;
   try {
     viewer = await createViewer(container, {
       modelUrl: MODEL_PATH,
-      startYawDeg: 180,     // start spun around
-      enableControls: true,
+      startYawDeg: 180,        // start spun 180°
+      enableControls: true
     });
   } catch (e) {
     console.error(e);
-    msg.textContent = `Failed to load model: ${e?.message || e}`;
+    msg.textContent = `Failed to load model: ${e.message || e}`;
     return;
   }
 
-  // Material target helper — always look for a material named "Screen"
-  const getScreenMaterial = () => viewer.findMaterialByName('Screen');
-
-  // Texture applier
-  const screen = makeScreenTextureManager(getScreenMaterial);
-
-  // Exporter (grabs exactly the 720×720 viewer canvas)
+  const screen = makeScreenTextureManager(viewer.THREE, () => viewer.findMaterialByName('Screen'));
   const exporter = makeExporter(viewer);
 
-  // Hook UI
   wireUI({
     onChooseFile: async (file, bright) => {
       try {
@@ -51,7 +44,7 @@ let viewer;
         msg.textContent = '';
       } catch (e) {
         console.error(e);
-        msg.textContent = 'Failed to clear texture.';
+        msg.textContent = 'Nothing to clear.';
       }
     },
     onExport: async () => {
@@ -61,8 +54,6 @@ let viewer;
         a.download = 'mockup-720.png';
         a.href = url;
         a.click();
-        // (optional) revoke after a tick
-        setTimeout(() => URL.revokeObjectURL(url), 1500);
       } catch (e) {
         console.error(e);
         msg.textContent = 'Export failed.';
