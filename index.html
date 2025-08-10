@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <title>Mockup Maker</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js?v=8"></script>
+  <!-- cache-bust the library too -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js?v=10"></script>
   <style>
     :root { --panel: 320px; --bg:#eef0f3; --card:#fff; --muted:#667085; --accent:#0f62fe;}
     * { box-sizing: border-box; }
@@ -27,12 +28,14 @@
     .toast { position: fixed; inset:auto 18px 18px auto; background:#111; color:#fff; padding:10px 12px; border-radius:8px; opacity:0; transform: translateY(6px); transition:.25s; pointer-events:none; }
     .toast.show { opacity:1; transform: translateY(0); }
     #work { position:absolute; left:-9999px; top:-9999px; }
+    .ver { font-size:12px; color:#98a2b3; margin-bottom:10px; }
   </style>
 </head>
 <body>
   <div class="app">
     <aside>
-      <h2 class="h">Mockup Maker</h2>
+      <div class="ver">Mockup Maker <b>v10</b></div>
+      <h2 class="h">Screen Texture</h2>
 
       <div class="group">
         <div class="row" style="grid-template-columns: 1fr;">
@@ -69,7 +72,7 @@
 
     <main>
       <model-viewer id="mv"
-        src="iPhone-15-pro-2/iPhone-15.gltf?v=8"
+        src="iPhone-15-pro-2/iPhone-15.gltf?v=10"
         camera-controls
         exposure="1"
         environment-image="neutral"
@@ -85,15 +88,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
-    // Hard-block any legacy "img.src = canvas" errors from older cached code
-    window.addEventListener('error', (e) => {
-      const t = e?.target;
-      if (t && t.tagName === 'IMG' && String(t.src).includes('[object%20HTMLCanvasElement]')) {
-        e.stopImmediatePropagation?.(); e.preventDefault?.();
-        console.warn('Ignored stale canvas→img error.');
-      }
-    }, true);
-
+    console.log('MockupMaker v10');
     const mv    = document.getElementById('mv');
     const file  = document.getElementById('file');
     const pick  = document.getElementById('pick');
@@ -107,7 +102,8 @@
     const work  = document.getElementById('work');
     const toast = document.getElementById('toast');
 
-    let bitmap = null; // ImageBitmap (never an <img>)
+    let bitmap = null; // ImageBitmap of the chosen image
+
     const say = (msg, ok=true) => {
       toast.textContent = msg;
       toast.style.background = ok ? '#111' : '#b42318';
@@ -121,7 +117,6 @@
       const f = e.target.files?.[0];
       if (!f) return;
       try {
-        // No <img>, no object URL — decode straight to ImageBitmap
         bitmap = await createImageBitmap(f, { imageOrientation: 'from-image' });
         await drawAndApply();
       } catch (err) {
@@ -149,8 +144,7 @@
 
     exportBtn.addEventListener('click', async () => {
       try {
-        const blob = await work.convertToBlob ? await work.convertToBlob({type:'image/png'}) :
-                     await new Promise(r => work.toBlob(r, 'image/png'));
+        const blob = await new Promise(r => work.toBlob(r, 'image/png'));
         const a = document.createElement('a');
         a.download = 'mockup-screen.png';
         a.href = URL.createObjectURL(blob);
@@ -201,8 +195,15 @@
     }
 
     async function applyCanvasToScreen() {
+      let blobUrl = null;
       try {
-        const tex = await mv.createTexture(work);
+        // ✅ Use a Blob URL (string), not the canvas object
+        const blob = await new Promise(r => work.toBlob(r, 'image/png'));
+        blobUrl = URL.createObjectURL(blob);
+        console.log('Blob URL:', blobUrl);
+
+        const tex = await mv.createTexture(blobUrl);
+
         const mat = mv.model?.materials?.find(m => m.name === 'Screen');
         if (!mat) { say('Screen material not found', false); return; }
 
@@ -236,6 +237,8 @@
       } catch (err) {
         console.error(err);
         say('Failed to apply image. Try another file / refresh.', false);
+      } finally {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
       }
     }
   </script>
