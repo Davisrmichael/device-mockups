@@ -3,53 +3,66 @@ import { wireUI } from './ui.js';
 import { makeScreenTextureManager } from './screen-texture.js';
 import { makeExporter } from './export-viewport.js';
 
-// Path to your GLTF relative to repo root
+// Adjust to your repo path
 const MODEL_PATH = 'iPhone-15-pro-2/iPhone-15.gltf';
 
-const container = document.getElementById('viewer');
-const msg = document.getElementById('msg');
+const els = {
+  file: document.getElementById('file'),
+  clear: document.getElementById('clear'),
+  bright: document.getElementById('bright'),
+  exportBtn: document.getElementById('export'),
+  msg: document.getElementById('msg'),
+  viewer: document.getElementById('viewer'),
+  threeCanvas: document.getElementById('threeCanvas'),
+  bgCanvas: document.getElementById('bgCanvas'),
+  hudCanvas: document.getElementById('hudCanvas'),
+};
 
 let viewer;
 
 (async () => {
   try {
-    viewer = await createViewer(container, {
+    viewer = await createViewer({
       modelUrl: MODEL_PATH,
-      startYawDeg: 180,
-      enableControls: true
+      canvas: els.threeCanvas,
     });
   } catch (e) {
-    if (msg) msg.textContent = `Failed to load model: ${e?.message || e}`;
+    els.msg.textContent = 'Failed to load model: ' + (e?.message || e);
+    els.msg.setAttribute('data-show', 'true');
     throw e;
   }
 
   const screen = makeScreenTextureManager(() => viewer.findMaterialByName('Screen'));
-  const exporter = makeExporter(viewer);
+  const exporter = makeExporter(els.viewer, [els.bgCanvas, els.threeCanvas, els.hudCanvas]);
 
   wireUI({
+    els,
     onChooseFile: async (file, bright) => {
       try {
         await screen.applyFileToMaterial(file, { bright });
-        msg.textContent = '';
+        els.msg.removeAttribute('data-show');
+        viewer.renderOnce();
       } catch (e) {
         console.error(e);
-        msg.textContent = e?.message || 'Failed to apply image. Try another file / refresh.';
+        els.msg.textContent = e?.message || 'Failed to apply image. Try another file.';
+        els.msg.setAttribute('data-show', 'true');
       }
     },
     onClear: () => {
       screen.clear();
-      msg.textContent = '';
+      els.msg.removeAttribute('data-show');
+      viewer.renderOnce();
     },
     onExport: async () => {
       try {
-        const url = await exporter.exportViewerPNG();
+        const url = await exporter.exportPNG();
         const a = document.createElement('a');
         a.download = 'mockup-720.png';
-        a.href = url;
-        a.click();
+        a.href = url; a.click();
       } catch (e) {
         console.error(e);
-        msg.textContent = 'Export failed.';
+        els.msg.textContent = 'Export failed.';
+        els.msg.setAttribute('data-show', 'true');
       }
     }
   });
