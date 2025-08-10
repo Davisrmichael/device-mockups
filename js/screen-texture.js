@@ -1,75 +1,88 @@
 // js/screen-texture.js
-import * as THREE from 'three';
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
-export function makeScreenTextureManager(findMatByName){
-  let lastTex = null;
+// Utility: read a File -> ImageBitmap
+async function loadImageBitmap(file) {
+  // Create ImageBitmap for fast upload; Firefox needs no options; Chrome OK
+  return await createImageBitmap(file);
+}
 
-  function getScreenMat(){
-    const m = findMatByName('Screen');
-    if(!m) throw new Error('Screen material not found');
-    return m;
+// Utility: draw the image onto a canvas 1:1 (no stretch), then turn into a Three texture.
+// We keep it simple: we upload the bitmap as-is and rely on the model's UVs to place it.
+// If you later want "cover/contain" + offsets, we can add a compositing canvas here.
+function makeTextureFromBitmap(bmp) {
+  // Create canvas the same size as source
+  const canvas = document.createElement('canvas');
+  canvas.width = bmp.width;
+  canvas.height = bmp.height;
+
+  const ctx = canvas.getContext('2d');
+  // Draw normally (no mirroring). For glTF, Three expects user textures with flipY=false.
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;             // sRGB for UI images
+  texture.flipY = false;                                 // glTF convention
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.anisotropy = 8;
+
+  return texture;
+}
+
+export function makeScreenTextureManager(getMaterial) {
+  let lastTexture = null;
+
+  function getTargetMaterialOrThrow() {
+    const mat = getMaterial?.();
+    if (!mat) throw new Error('Material "Screen" not found in model.');
+    if (!('isMaterial' in mat)) throw new Error('Target is not a material.');
+    return mat;
   }
 
-  function makeTextureFromImage(img){
-    const tex = img instanceof HTMLCanvasElement ? new THREE.CanvasTexture(img) : new THREE.Texture(img);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.flipY = false;        // GLTF expects +Y up, our data is already correct after onload
-    tex.needsUpdate = true;
-    return tex;
-  }
+  function applyTextureToMaterial(tex, { bright = true } = {}) {
+    const mat = getTargetMaterialOrThrow();
 
-  async function loadImageFromFile(file){
-    const url = URL.createObjectURL(file);
-    try {
-      const img = await new Promise((ok, err)=>{
-        const im = new Image();
-        im.crossOrigin = 'anonymous';
-        im.onload = ()=> ok(im);
-        im.onerror = ()=> err(new Error('Could not read image'));
-        im.src = url;
-      });
-      return img;
-    } finally {
-      // don’t revoke immediately; some browsers upload to GPU lazily
-      setTimeout(()=> URL.revokeObjectURL(url), 5000);
-    }
-  }
-
-  async function applyFileToMaterial(file, {bright=true} = {}){
-    const mat = getScreenMat();
-    const img = await loadImageFromFile(file);
-
-    // No warp: let the model’s UVs do the mapping 1:1
-    const tex = makeTextureFromImage(img);
-
-    // Base color
+    // MeshStandardMaterial expected for glTF (Principled BSDF)
+    // Apply as base color (map) and optional emissive (for brightness)
     mat.map = tex;
-    if (mat.color) mat.color.set(0xffffff);
+    mat.needsUpdate = true;
 
-    // Emissive
-    if (bright){
+    if (bright) {
+      mat.emissive = new THREE.Color(0xffffff);
+      mat.emissiveIntensity = 1.0;
       mat.emissiveMap = tex;
-      if (mat.emissive) mat.emissive.setRGB(1,1,1);
-      mat.emissiveIntensity = 1;
     } else {
       mat.emissiveMap = null;
-      if (mat.emissive) mat.emissive.setRGB(0,0,0);
-      mat.emissiveIntensity = 0;
+      mat.emissiveIntensity = 0.0;
     }
-
-    mat.needsUpdate = true;
-    lastTex = tex;
   }
 
-  function clear(){
-    const mat = getScreenMat();
-    mat.map = null;
-    mat.emissiveMap = null;
-    if (mat.emissive) mat.emissive.setRGB(0,0,0);
-    mat.emissiveIntensity = 0;
-    mat.needsUpdate = true;
-    lastTex = null;
-  }
+  return {
+    async applyFileToMaterial(file, { bright = true } = {}) {
+      if (!file) throw new Error('No file selected.');
+      // Clean up previous texture (optional)
+      if (lastTexture) {
+        lastTexture.dispose?.();
+        lastTexture = null;
+      }
 
-  return { applyFileToMaterial, clear };
+      const bmp = await loadImageBitmap(file);
+      const tex = makeTextureFromBitmap(bmp);
+      lastTexture = tex;
+
+      applyTextureToMaterial(tex, { bright });
+    },
+
+    clear() {
+      const mat = getTargetMaterialOrThrow();
+      if (mat.map) { mat.map.dispose?.(); mat.map = null; }
+      if (mat.emissiveMap) { mat.emissiveMap.dispose?.(); mat.emissiveMap = null; }
+      mat.emissiveIntensity = 0.0;
+      mat.needsUpdate = true;
+    }
+  };
 }
