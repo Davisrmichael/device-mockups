@@ -15,8 +15,9 @@
 </head>
 <body>
 
+<!-- IMPORTANT: point to your actual path -->
 <model-viewer id="mv" 
-  src="iphone_15_pro_max.gltf"
+  src="iPhone-15-pro-2/iPhone-15.gltf"
   camera-controls
   exposure="1"
   environment-image="neutral"
@@ -51,10 +52,9 @@ let loadedImageEl = null;
 mv.addEventListener('load', () => {
   const scene = mv.model;
   if (!scene) return;
-  const allMats = [];
-  scene.materials.forEach(m => allMats.push(m));
-  // Pick first material containing "screen" in name
-  screenMat = allMats.find(m => m.name.toLowerCase().includes('screen')) || allMats[0];
+  const mats = [];
+  scene.materials.forEach(m => mats.push(m));
+  screenMat = mats.find(m => (m.name||'').toLowerCase().includes('screen')) || mats[0];
 });
 
 function drawCoverToCanvasFromImageElement(imageEl){
@@ -68,7 +68,7 @@ function drawCoverToCanvasFromImageElement(imageEl){
   const sh = imageEl.naturalHeight;
   const dw = off.width, dh = off.height;
 
-  const scale = Math.max(dw/sw, dh/sh) * Z;  // COVER with uniform scale
+  const scale = Math.max(dw/sw, dh/sh) * Z;   // cover, uniform X/Y scale
   const tw = sw * scale, th = sh * scale;
 
   const overflowX = Math.max(0, tw - dw);
@@ -79,7 +79,7 @@ function drawCoverToCanvasFromImageElement(imageEl){
   const dx = (dw - tw)/2 + px;
   const dy = (dh - th)/2 + py;
 
-  // Flip vertically so it matches glTF UVs
+  // Flip vertically to align with glTF UV space
   ctx.save();
   ctx.translate(0, dh);
   ctx.scale(1, -1);
@@ -91,7 +91,7 @@ async function applyCanvasToScreen(){
   if(!screenMat){ console.warn('Screen not ready'); return; }
   try{
     await mv.updateComplete;
-    const tex = await mv.createTexture(off); // pass the canvas directly
+    const tex = await mv.createTexture(off); // canvas → texture
 
     const pbr = screenMat.pbrMetallicRoughness;
     pbr?.setBaseColorFactor?.([1,1,1,1]);
@@ -126,17 +126,16 @@ imageInput.addEventListener('change', async ()=>{
 
   try{
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       const img = new Image();
       img.decoding = 'sync';
-      img.crossOrigin = 'anonymous';
       img.onload = async () => {
         loadedImageEl = img;
         drawCoverToCanvasFromImageElement(img);
         await applyCanvasToScreen();
       };
-      img.onerror = (e)=>{ console.error('img error', e); };
-      img.src = reader.result;
+      img.onerror = (e)=> console.error('img load error', e);
+      img.src = reader.result; // data URL, NOT a canvas object
     };
     reader.readAsDataURL(f);
   }catch(err){
@@ -163,4 +162,3 @@ clearImage.addEventListener('click', ()=>{
 
 </body>
 </html>
-
