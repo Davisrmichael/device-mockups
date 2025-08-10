@@ -1,66 +1,64 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mockup Maker</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root { --pad: 16px; }
-    body{margin:0;background:#e9ecef;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
-    .wrap{display:flex;gap:24px;max-width:1200px;margin:24px auto;padding:0 var(--pad)}
-    aside{width:320px}
-    h3{margin:0 0 12px}
-    label.block{display:block;font-weight:600;margin:16px 0 8px}
-    .note{color:#666;font-size:12px;margin-top:6px;line-height:1.35}
-    .stack > *{display:block;margin-top:8px}
-    #viewer{width:720px;height:720px}
-    canvas{width:720px;height:720px;display:block;background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.06)}
-    .btn{padding:8px 12px;border-radius:8px;border:1px solid #ccd;cursor:pointer;background:#fff}
-  </style>
-
-  <!-- Import map so any 'three' / 'three/addons/*' resolves in the browser -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+    body {
+      margin: 0;
+      background: #e9ecef;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 16px;
+      display: flex;
+      gap: 20px;
     }
-  }
-  </script>
+    #ui {
+      width: 250px;
+      flex-shrink: 0;
+    }
+    #viewer {
+      width: 720px;
+      height: 720px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    button, input[type="file"] {
+      margin-top: 8px;
+    }
+    #msg {
+      margin-top: 8px;
+      font-size: 0.9em;
+      color: red;
+    }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <aside>
-      <h3>Mockup Maker</h3>
+  <div id="ui">
+    <h2>Mockup Maker</h2>
 
-      <label class="block">Screen Texture</label>
-      <div class="stack">
-        <input id="file" type="file" accept="image/*" />
-        <button id="clear" class="btn">Clear</button>
-      </div>
+    <label for="file"><strong>Screen Texture</strong></label><br>
+    <input id="file" type="file" accept="image/*"><br>
+    <button id="clear">Clear</button>
 
-      <div style="margin-top:12px">
-        <input id="bright" type="checkbox" checked />
-        <label for="bright" style="display:inline;margin-left:6px;font-weight:500">Bright (emissive)</label>
-      </div>
+    <div style="margin-top: 10px;">
+      <label>
+        <input id="bright" type="checkbox" checked>
+        Bright (emissive)
+      </label>
+    </div>
+    <small>Replaces material named Screen. Image is applied 1:1 (no warp), auto Y-flip, and emissive by default.</small>
 
-      <p class="note">
-        Replaces material named <b>Screen</b>. Image is applied 1:1 (no warp), auto Y-flip, and emissive by default.
-      </p>
+    <h3 style="margin-top: 20px;">Export</h3>
+    <button id="export">Export 720×720 PNG</button>
+    <small>Exports exactly what you see in the 720×720 viewer.</small>
 
-      <label class="block" style="margin-top:16px">Export</label>
-      <button id="export" class="btn">Export 720×720 PNG</button>
-
-      <p id="msg" class="note" style="margin-top:8px;"></p>
-    </aside>
-
-    <main>
-      <div id="viewer">
-        <canvas id="view" width="720" height="720"></canvas>
-      </div>
-    </main>
+    <div id="msg"></div>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <div id="viewer"></div>
+
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
