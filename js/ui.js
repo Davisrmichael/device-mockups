@@ -1,28 +1,27 @@
 export function wireUI({ onChooseFile, onClear, onExport }) {
-  const input = document.getElementById('imageInput');
-  const brightCheck = document.getElementById('brightCheck');
-  const clearBtn = document.getElementById('clearBtn');
-  const exportBtn = document.getElementById('exportBtn');
+  const file = document.getElementById('file');
+  const clearBtn = document.getElementById('clear');
+  const exportBtn = document.getElementById('export');
+  const bright = document.getElementById('bright');
 
-  input.addEventListener('change', () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    onChooseFile(file, brightCheck.checked);
-    // don’t clear input so user can re-upload same file repeatedly if needed
+  if (!file || !clearBtn || !exportBtn || !bright) {
+    console.error("UI elements not found. Check index.html IDs.");
+    return;
+  }
+
+  file.addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f) {
+      onChooseFile(f, bright.checked);
+    }
   });
 
   clearBtn.addEventListener('click', () => {
     onClear();
-    input.value = '';
+    file.value = ''; // reset file input
   });
 
   exportBtn.addEventListener('click', () => {
     onExport();
-  });
-
-  // If user toggles bright after an image, re-apply by “choosing” the same file
-  brightCheck.addEventListener('change', () => {
-    const file = input.files && input.files[0];
-    if (file) onChooseFile(file, brightCheck.checked);
   });
 }
