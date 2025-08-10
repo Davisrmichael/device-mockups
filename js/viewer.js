@@ -1,97 +1,179 @@
 // js/viewer.js
+// ESM via CDN — works on GitHub Pages without bundling.
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
 
-export async function createViewer(container, {
-  modelUrl,
-  startYawDeg = 180,
-  enableControls = true
-} = {}) {
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: true,
-    preserveDrawingBuffer: true, // so export can read pixels
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  const w = container.clientWidth || 720;
-  const h = container.clientHeight || 720;
-  renderer.setSize(w, h, false);
-  container.innerHTML = '';
-  container.appendChild(renderer.domElement);
+/**
+ * Create a 720×720 Three.js viewer.
+ * @param {HTMLElement} container - Where to append the canvas.
+ * @param {{modelUrl: string, startYawDeg?: number, enableControls?: boolean}} opts
+ * @returns {Promise<{
+ *   scene: THREE.Scene,
+ *   camera: THREE.PerspectiveCamera,
+ *   renderer: THREE.WebGLRenderer,
+ *   controls?: OrbitControls,
+ *   model?: THREE.Object3D,
+ *   findMaterialByName(name: string): THREE.Material | null,
+ *   setSize(w: number, h: number): void,
+ *   getCanvas(): HTMLCanvasElement,
+ *   render(): void,
+ *   dispose(): void
+ * }>}
+ */
+export async function createViewer(container, opts) {
+  if (!container) throw new Error('Viewer container element not found');
 
-  // Scene + Camera
+  const width = 720;
+  const height = 720;
+
+  // Scene & renderer
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
-  camera.position.set(0, 0, 2.2);
+  scene.background = new THREE.Color(0xffffff);
 
-  // Lights (make sure we add the *light*, not the position!)
-  const amb = new THREE.AmbientLight(0xffffff, 0.30);
-  scene.add(amb);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+  renderer.setSize(width, height, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
-  const hemi = new THREE.HemisphereLight(0xffffff, 0x222233, 0.40);
-  scene.add(hemi);
+  // Camera
+  const camera = new THREE.PerspectiveCamera(35, width / height, 0.01, 100);
+  camera.position.set(0, 0.1, 2.2);
 
-  const dir = new THREE.DirectionalLight(0xffffff, 1.0);
-  dir.position.set(1.5, 2.0, 3.0);
-  scene.add(dir);
+  // Lights (soft, neutral)
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x888888, 0.85);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.75);
+  dir.position.set(3, 4, 5);
+  scene.add(hemi, dir);
 
   // Controls
-  let controls = null;
-  if (enableControls) {
+  let controls;
+  if (opts?.enableControls) {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.target.set(0, 0, 0);
-    controls.update();
+    controls.rotateSpeed = 0.8;
+    controls.zoomSpeed = 0.8;
+    controls.panSpeed = 0.8;
   }
 
-  // Load model
+  // Canvas in the container
+  container.innerHTML = '';
+  container.appendChild(renderer.domElement);
+
+  // Loader
   const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(modelUrl);
-  const root = gltf.scene || gltf.scenes?.[0];
-  if (!root) throw new Error('GLTF has no scene');
+  let model;
 
-  // Spin 180° to match your desired start
-  root.rotation.y = THREE.MathUtils.degToRad(startYawDeg);
-  scene.add(root);
+  if (opts?.modelUrl) {
+    const gltf = await loader.loadAsync(opts.modelUrl);
+    model = gltf.scene || gltf.scenes?.[0];
+    if (!model) throw new Error('Model has no scene');
 
-  // Helpers
+    // Initial orientation — rotate 180° around Y
+    const yaw = (opts.startYawDeg ?? 180) * Math.PI / 180;
+    model.rotation.y = yaw;
+
+    // Fit camera to object
+    fitCameraToObject(camera, model, 1.2, controls);
+
+    scene.add(model);
+  }
+
+  function fitCameraToObject(cam, object, frame = 1.2, ctrls) {
+    const box = new THREE.Box3().setFromObject(object);
+    if (!isFinite(box.min.x) || !isFinite(box.max.x)) return;
+
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    // Recenter controls target / camera look
+    if (ctrls) ctrls.target.copy(center);
+    cam.lookAt(center);
+
+    // Compute distance from FOV
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = cam.fov * (Math.PI / 180);
+    let dist = (maxDim / 2) / Math.tan(fov / 2);
+    dist *= frame;
+
+    const dir = new THREE.Vector3()
+      .subVectors(cam.position, center)
+      .normalize();
+
+    // Put camera along its current direction at required distance
+    cam.position.copy(center).addScaledVector(dir, dist);
+    cam.near = dist / 100;
+    cam.far = dist * 100;
+    cam.updateProjectionMatrix();
+  }
+
   function render() {
+    controls?.update();
     renderer.render(scene, camera);
   }
 
-  function resize() {
-    const W = container.clientWidth || w;
-    const H = container.clientHeight || h;
-    renderer.setSize(W, H, false);
-    camera.aspect = W / H;
-    camera.updateProjectionMatrix();
+  // Render loop (simple; you can integrate your own raf elsewhere)
+  let rafId = 0;
+  const tick = () => {
     render();
-  }
-  window.addEventListener('resize', resize);
+    rafId = requestAnimationFrame(tick);
+  };
+  tick();
 
-  // Find a material by name inside the loaded model
+  // Public helpers
   function findMaterialByName(name) {
     let found = null;
-    root.traverse(obj => {
+    if (!model) return null;
+    model.traverse((obj) => {
       if (found) return;
-      if (obj.isMesh && obj.material) {
-        if (Array.isArray(obj.material)) {
-          found = obj.material.find(m => m && m.name === name) || null;
-        } else if (obj.material.name === name) {
-          found = obj.material;
+      const mat = obj.material;
+      if (Array.isArray(mat)) {
+        for (const m of mat) {
+          if (m?.name === name) { found = m; break; }
         }
+      } else if (mat?.name === name) {
+        found = mat;
       }
     });
     return found;
   }
 
-  // Initial frame
+  function setSize(w, h) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    render();
+  }
+
+  function getCanvas() {
+    return renderer.domElement;
+  }
+
+  function dispose() {
+    cancelAnimationFrame(rafId);
+    controls?.dispose();
+    renderer.dispose();
+    // (Optional) traverse and dispose geometry/materials if you reload models often
+  }
+
+  // Initial render
   render();
 
   return {
-    renderer, scene, camera, root, controls,
-    render, findMaterialByName,
+    scene,
+    camera,
+    renderer,
+    controls,
+    model,
+    findMaterialByName,
+    setSize,
+    getCanvas,
+    render,
+    dispose
   };
 }
