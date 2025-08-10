@@ -2,294 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Mockup Maker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    :root { --panel: 320px; --view: 720px; }
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#e9ecef; color:#111; }
-    .wrap { display:flex; gap:24px; padding:24px; box-sizing:border-box; }
-    aside {
-      width: var(--panel); min-width: var(--panel); background:#fff; border:1px solid #dcdfe3; border-radius:12px; padding:16px 16px 12px;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
-      height: fit-content;
-    }
-    h1 { margin:0 0 12px; font-size:18px; font-weight:700; }
-    fieldset { border:0; padding:0; margin:0 0 18px; }
-    legend { font-weight:600; margin-bottom:8px; }
-    label { display:block; font-size:12px; color:#555; margin:10px 0 6px; }
-    .row { display:flex; align-items:center; gap:8px; margin:8px 0; }
-    small.muted { color:#6b7280; display:block; margin-top:6px; }
-    button, input[type="file"]::file-selector-button {
-      font: inherit; border:1px solid #c9ced6; background:#fff; border-radius:8px; padding:8px 12px; cursor:pointer;
-    }
-    button.primary { background:#111; color:#fff; border-color:#111; }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    .viewer {
-      width: var(--view); height: var(--view); background:#fff; border:1px solid #dcdfe3; border-radius:12px;
-      position: relative; overflow:hidden; box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    }
-    canvas { display:block; width: 100%; height: 100%; }
-    .note { color:#b42318; font-size:12px; margin-top:10px; min-height:16px; }
-  </style>
+  <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
-  <div class="wrap">
-    <aside>
-      <h1>Mockup Maker</h1>
+  <aside class="panel">
+    <h1>Mockup Maker</h1>
 
-      <fieldset>
-        <legend>Screen Texture</legend>
-        <div class="row">
-          <input id="file" type="file" accept="image/*" />
-          <button id="clear" type="button">Clear</button>
-        </div>
-        <div class="row">
-          <input id="bright" type="checkbox" checked />
-          <label for="bright" style="margin:0">Bright (emissive)</label>
-        </div>
-        <small class="muted">
-          Targets material named <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip (GLTF safe). Re-applies both base &amp; emissive every time.
-        </small>
-      </fieldset>
+    <section>
+      <label class="label">Screen Texture</label>
+      <div class="row">
+        <input id="imageInput" type="file" accept="image/*" />
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+      <label class="check">
+        <input id="brightCheck" type="checkbox" checked />
+        Bright (emissive)
+      </label>
+      <p class="note">
+        Targets material <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, auto Y-flip.
+      </p>
+    </section>
 
-      <fieldset>
-        <legend>Export</legend>
-        <button id="export" class="primary" type="button">Export 720×720 PNG</button>
-        <small class="muted">Exports exactly what you see in the 720×720 viewer.</small>
-      </fieldset>
+    <section>
+      <label class="label">Export</label>
+      <button id="exportBtn" type="button">Export 720×720 PNG</button>
+      <p class="note">Exports exactly what you see in the 720×720 viewer.</p>
+      <p id="msg" class="msg"></p>
+    </section>
+  </aside>
 
-      <div id="msg" class="note"></div>
-    </aside>
+  <main class="stage">
+    <div id="viewer" class="viewer" aria-label="3D viewer"></div>
+  </main>
 
-    <div class="viewer" id="view"></div>
-  </div>
-
-  <!-- Use ES modules (no THREE.OrbitControls global) -->
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-
-    // ---- DOM
-    const ui = {
-      view: document.getElementById('view'),
-      file: document.getElementById('file'),
-      clear: document.getElementById('clear'),
-      bright: document.getElementById('bright'),
-      exportBtn: document.getElementById('export'),
-      msg: document.getElementById('msg')
-    };
-    const showMsg = (t, isErr=false) => {
-      ui.msg.textContent = t || '';
-      ui.msg.style.color = isErr ? '#b42318' : '#555';
-    };
-
-    // ---- Three.js scene
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xe9ecef);
-
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-    camera.position.set(0, 0.42, 1.35);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(720, 720, false);
-    ui.view.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.target.set(0, 0.42, 0);
-
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b0b0, 0.8);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(1, 2, 2);
-    scene.add(dir);
-
-    const phoneRoot = new THREE.Group();
-    scene.add(phoneRoot);
-
-    // ---- Load the model (make sure this relative path exists!)
-    const loader = new GLTFLoader();
-    const MODEL_PATH = 'iPhone-15-pro-2/iPhone-15.gltf';
-
-    let screenMaterial = null;
-
-    function findScreenMaterial(root) {
-      let mat = null;
-      root.traverse((obj) => {
-        if (obj.isMesh && obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          for (const m of mats) {
-            if (m && m.name === 'Screen') { mat = m; break; }
-          }
-        }
-      });
-      return mat;
-    }
-
-    try {
-      const gltf = await loader.loadAsync(MODEL_PATH);
-      const model = gltf.scene || gltf.scenes[0];
-      model.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; }});
-      phoneRoot.add(model);
-
-      // Face front: 180° around Y
-      phoneRoot.rotation.y = Math.PI;
-
-      screenMaterial = findScreenMaterial(model);
-      if (!screenMaterial) showMsg('Screen material not found in model.', true);
-      else showMsg('Model ready. Choose an image to apply.');
-    } catch (err) {
-      console.error(err);
-      showMsg('Failed to load model. Check path iPhone-15-pro-2/iPhone-15.gltf', true);
-    }
-
-    // ---- Texture helpers
-    function drawCoverToCanvas(image, size = 2048) {
-      const c = document.createElement('canvas');
-      c.width = c.height = size;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, size, size);
-
-      const imgW = image.naturalWidth || image.width;
-      const imgH = image.naturalHeight || image.height;
-      if (!imgW || !imgH) return c;
-
-      const scale = Math.max(size / imgW, size / imgH);
-      const w = Math.round(imgW * scale);
-      const h = Math.round(imgH * scale);
-      const x = Math.round((size - w) / 2);
-      const y = Math.round((size - h) / 2);
-
-      ctx.drawImage(image, x, y, w, h);
-      return c;
-    }
-
-    function textureFromImage(image) {
-      const canvas = drawCoverToCanvas(image);
-      const url = canvas.toDataURL('image/png');
-      const loader = new THREE.TextureLoader();
-      const tex = loader.load(url);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.flipY = false;     // GLTF-safe
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    function applyTextureToScreen(tex) {
-      if (!screenMaterial) { showMsg('Screen material not found in model.', true); return; }
-
-      if (screenMaterial.isMeshStandardMaterial) {
-        screenMaterial.metalness = 0.0;
-        screenMaterial.roughness = 0.9;
-      }
-      screenMaterial.color?.set(0xffffff);
-      screenMaterial.map = tex;
-
-      if (ui.bright.checked) {
-        screenMaterial.emissive?.set(0xffffff);
-        screenMaterial.emissiveMap = tex;
-        screenMaterial.emissiveIntensity = 1.0;
-      } else {
-        screenMaterial.emissiveMap = null;
-        screenMaterial.emissive?.set(0x000000);
-        screenMaterial.emissiveIntensity = 1.0;
-      }
-
-      screenMaterial.needsUpdate = true;
-      showMsg('Applied image to Screen.');
-      renderOnce();
-    }
-
-    // ---- UI
-    ui.file.addEventListener('change', async (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (!f) return;
-      try {
-        const url = URL.createObjectURL(f);
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          const tex = textureFromImage(img);
-          applyTextureToScreen(tex);
-        };
-        img.onerror = (err) => { console.error(err); showMsg('Failed to load image.', true); };
-        img.crossOrigin = 'anonymous';
-        img.src = url;
-      } catch (err) {
-        console.error(err);
-        showMsg('Failed to apply image. Try another file / refresh.', true);
-      }
-    });
-
-    ui.bright.addEventListener('change', () => {
-      if (!screenMaterial) return;
-      const current = screenMaterial.map || screenMaterial.emissiveMap;
-      if (current) applyTextureToScreen(current);
-      else showMsg('No image on Screen yet.');
-    });
-
-    ui.clear.addEventListener('click', () => {
-      if (!screenMaterial) return;
-      screenMaterial.map = null;
-      screenMaterial.emissiveMap = null;
-      screenMaterial.color?.set(0x000000);
-      screenMaterial.emissive?.set(0x000000);
-      screenMaterial.needsUpdate = true;
-      ui.file.value = '';
-      showMsg('Cleared screen texture.');
-      renderOnce();
-    });
-
-    ui.exportBtn.addEventListener('click', async () => {
-      const size = 720;
-      const prev = renderer.getSize(new THREE.Vector2());
-      const prevPR = renderer.getPixelRatio();
-
-      renderer.setPixelRatio(1);
-      renderer.setSize(size, size, false);
-      controls.update();
-      renderer.render(scene, camera);
-
-      const out = document.createElement('canvas');
-      out.width = out.height = size;
-      const ctx = out.getContext('2d');
-      ctx.drawImage(renderer.domElement, 0, 0, size, size);
-
-      out.toBlob((blob) => {
-        const a = document.createElement('a');
-        a.download = 'mockup-720.png';
-        a.href = URL.createObjectURL(blob);
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }, 'image/png');
-
-      renderer.setPixelRatio(prevPR);
-      renderer.setSize(prev.x, prev.y, false);
-      renderOnce();
-    });
-
-    // ---- Render
-    function renderOnce() {
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    // Keep canvas == CSS 720×720
-    const resizeObserver = new ResizeObserver(() => {
-      const rect = ui.view.getBoundingClientRect();
-      renderer.setSize(rect.width, rect.height, false);
-      renderOnce();
-    });
-    resizeObserver.observe(ui.view);
-  </script>
+  <!-- App entry (ES modules from CDN; no bundling needed) -->
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
