@@ -20,11 +20,12 @@
     .muted{color:var(--muted);font-size:12px}
     .status{margin-top:10px;min-height:20px;font-size:12px;color:var(--muted)}
     main{background:white;border:1px solid var(--ring);border-radius:12px;display:grid;place-items:center}
-    model-viewer{width:100%;height:100%;--poster-color:transparent}
-    /* debug: hidden work canvas we draw into (screen only) */
-    #work{position:fixed;inset:12px auto auto 12px;width:120px;height:auto;opacity:.08;pointer-events:none;display:none}
+    .stage{width:720px;height:720px;display:grid;place-items:center}
+    model-viewer{width:720px;height:720px;--poster-color:transparent}
+    /* hidden work canvas we draw the screen into (to avoid warp) */
+    #work{display:none}
   </style>
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.3.0/dist/model-viewer.min.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -42,36 +43,37 @@
           <label for="bright" style="font-weight:500;margin:0;">Bright (emissive)</label>
         </div>
         <div class="muted" style="margin-top:8px;">
-          Targets material named <b>Screen</b>. Image is drawn with <b>cover</b>, equal X/Y scale, and auto Y-flip.
+          Targets material <b>Screen</b>. Image uses <b>cover</b>, equal X/Y scale, and an auto Y-flip.
         </div>
       </div>
 
       <div class="section">
         <label>Export</label>
         <div class="row">
-          <button id="export">Export PNG</button>
-          <span class="muted" id="exportHint">Snapshots the viewport; falls back to screen image if needed.</span>
+          <button id="export">Export 720×720 PNG</button>
         </div>
+        <div class="muted">Exports exactly what you see in the 720×720 viewer.</div>
       </div>
 
       <div class="status" id="status">Waiting for image…</div>
     </aside>
 
     <main>
-      <model-viewer id="mv"
-        src="iPhone-15-pro-2/iPhone-15.gltf"
-        exposure="1.0"
-        camera-controls
-        disable-zoom
-        tone-mapping="neutral"
-        shadow-intensity="0"
-        camera-orbit="180deg 90deg auto"   <!-- start rotated 180° -->
-        >
-      </model-viewer>
+      <div class="stage">
+        <model-viewer id="mv"
+          src="iPhone-15-pro-2/iPhone-15.gltf"
+          exposure="1.0"
+          camera-controls
+          disable-zoom
+          tone-mapping="neutral"
+          shadow-intensity="0"
+          camera-orbit="180deg 90deg auto">
+        </model-viewer>
+      </div>
     </main>
   </div>
 
-  <!-- hidden canvas sized to the real screen aspect to avoid any warping -->
+  <!-- hidden canvas holds the correctly scaled screen image -->
   <canvas id="work" width="1179" height="2556"></canvas>
 
 <script>
@@ -130,35 +132,22 @@
     const scr = mv.model?.materials?.find(m => m.name === 'Screen');
     if (!scr) { setStatus('Screen material not found in model.', false); return; }
 
-    // Use a blob URL for the canvas to avoid [object HTMLCanvasElement] fetches
+    // Create a blob URL for the canvas to avoid [object HTMLCanvasElement] issues
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    if (!blob) { setStatus('Could not create texture blob.', false); return; }
     const url = URL.createObjectURL(blob);
 
     try {
       const tex = await mv.createTexture(url);
-
-      const useEmissive = brightChk.checked;
-
-      if (useEmissive) {
-        if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(tex);
-        else if (scr.setEmissiveTexture)     scr.setEmissiveTexture(tex);
-        else if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
-          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
-          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
-
-        if (typeof scr.setEmissiveFactor === 'function') scr.setEmissiveFactor([1,1,1]);
-        else scr.emissiveFactor = [1,1,1];
-
+      if (brightChk.checked) {
+        // Prefer emissive for brightness
+        scr.setEmissiveTexture?.(tex);
+        scr.setEmissiveFactor?.([1,1,1]);
         scr.pbrMetallicRoughness?.setMetallicFactor?.(0.0);
         scr.pbrMetallicRoughness?.setRoughnessFactor?.(0.9);
       } else {
-        if (scr.pbrMetallicRoughness?.baseColorTexture?.setTexture)
-          scr.pbrMetallicRoughness.baseColorTexture.setTexture(tex);
-        else if (scr.pbrMetallicRoughness?.setBaseColorTexture)
-          scr.pbrMetallicRoughness.setBaseColorTexture(tex);
+        scr.pbrMetallicRoughness?.setBaseColorTexture?.(tex);
       }
-
       setStatus('✅ Screen updated.');
     } catch (err) {
       console.error(err);
@@ -189,11 +178,10 @@
       const scr = mv.model?.materials?.find(m => m.name === 'Screen');
       if (!scr) return;
 
-      if (scr.emissiveTexture?.setTexture) scr.emissiveTexture.setTexture(null);
-      if (typeof scr.setEmissiveTexture === 'function') scr.setEmissiveTexture(null);
+      scr.setEmissiveTexture?.(null);
       const pmr = scr.pbrMetallicRoughness;
-      if (pmr?.baseColorTexture?.setTexture) pmr.baseColorTexture.setTexture(null);
-      if (pmr?.setBaseColorTexture) pmr.setBaseColorTexture(null);
+      pmr?.baseColorTexture?.setTexture?.(null);
+      pmr?.setBaseColorTexture?.(null);
 
       setStatus('Screen cleared.');
     } catch (e) {
@@ -202,36 +190,42 @@
     }
   }
 
+  // Export the visible 720×720 viewport
   async function handleExport() {
-    setStatus('Exporting…');
     try {
-      // Best: snapshot the whole 3D view (if supported by this model-viewer build)
-      if (typeof mv.toBlob === 'function') {
-        const blob = await mv.toBlob({ mimeType: 'image/png' });
-        if (blob) return saveBlob(blob, 'mockup.png');
+      setStatus('Exporting…');
+      if (typeof mv.toBlob !== 'function') {
+        setStatus('Export not supported in this browser/build.', false);
+        return;
       }
-      // Fallback: export just the screen image (work canvas)
-      const blob = await new Promise(r => work.toBlob(r, 'image/png'));
-      saveBlob(blob, 'mockup-screen.png');
+      // Snapshot the model-viewer, then resize to exactly 720×720
+      const snap = await mv.toBlob({ mimeType: 'image/png' });
+      if (!snap) throw new Error('toBlob returned null');
+
+      const img = await createImageBitmap(snap);
+      const out = document.createElement('canvas');
+      out.width = 720; out.height = 720;
+      const ctx = out.getContext('2d');
+      // cover-fit from snapshot into 720×720 just in case snapshot size isn’t square
+      const sw = img.width, sh = img.height;
+      const scale = Math.max(720 / sw, 720 / sh);
+      const tw = sw * scale, th = sh * scale;
+      const ox = (720 - tw) / 2, oy = (720 - th) / 2;
+      ctx.drawImage(img, ox, oy, tw, th);
+
+      out.toBlob((blob)=>{
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'mockup-720.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        setStatus('✅ Exported 720×720.');
+      }, 'image/png');
     } catch (e) {
       console.error(e);
-      setStatus('Export failed.', false);
-      return;
+      setStatus('Export failed. Try Chrome/Edge and ensure model-viewer loaded.', false);
     }
-    setStatus('✅ Exported.');
   }
 
-  function saveBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  // UI wires
   chooseBtn.addEventListener('click', handleChoose);
   clearBtn .addEventListener('click', handleClear);
   exportBtn.addEventListener('click', handleExport);
