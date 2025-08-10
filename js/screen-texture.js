@@ -1,45 +1,75 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
 
-const MAX_EDGE = 2048;
+export function makeScreenTextureManager(viewer){
+  let lastTex=null;
 
-async function fileToImageBitmap(file) {
-  const img = await createImageBitmap(file);
-  const w = img.width, h = img.height;
-  const long = Math.max(w,h);
-  if (long <= MAX_EDGE) return img;
-  const scale = MAX_EDGE / long;
-  const cw = Math.round(w*scale), ch = Math.round(h*scale);
-  const c = new OffscreenCanvas(cw, ch);
-  const g = c.getContext('2d');
-  g.drawImage(img, 0, 0, cw, ch);
-  return await createImageBitmap(c);
-}
+  async function applyImageFile(file, { emissive=true } = {}){
+    const imgURL = URL.createObjectURL(file);
+    const img = await loadImage(imgURL);
 
-export function makeScreenTextureManager(getMaterial){
-  function clearTex(mat){
-    if (!mat) return;
-    ['map','emissiveMap'].forEach(k => {
-      if (mat[k]) { mat[k].dispose(); mat[k] = null; }
-    });
+    // Draw to square canvas with "cover" fit and Y flip for GLTF
+    const size = 1024;
+    const can = document.createElement('canvas'); can.width=can.height=size;
+    const ctx = can.getContext('2d');
+
+    // cover fit
+    const rImg = img.width/img.height;
+    const rCan = 1;
+    let dw=size, dh=size, sx=0, sy=0, sw=img.width, sh=img.height;
+    if(rImg>rCan){
+      // image wider -> crop sides
+      sh = img.height;
+      sw = sh * rCan;
+      sx = (img.width - sw)/2;
+    }else{
+      // image taller -> crop top/bottom
+      sw = img.width;
+      sh = sw / rCan;
+      sy = (img.height - sh)/2;
+    }
+
+    // draw flipped vertically (GLTF UV vs canvas)
+    ctx.save();
+    ctx.translate(0, size);
+    ctx.scale(1,-1);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(can);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = false;
+    tex.needsUpdate = true;
+
+    const mat = viewer.findMaterialByName('Screen');
+    if(!mat) throw new Error('Material "Screen" not found in model.');
+
+    mat.map = tex;
+    mat.map.needsUpdate = true;
+    if(emissive){
+      mat.emissive = new THREE.Color(0xffffff);
+      mat.emissiveMap = tex;
+      mat.emissiveIntensity = 1.0;
+    }
+    mat.needsUpdate = true;
+
+    if(lastTex && lastTex.dispose) lastTex.dispose();
+    lastTex = tex;
+  }
+
+  function clear(){
+    const mat = viewer.findMaterialByName('Screen');
+    if(!mat) return;
+    if(mat.map){ mat.map.dispose(); mat.map = null; }
+    mat.emissiveMap = null;
+    mat.emissiveIntensity = 0.0;
     mat.needsUpdate = true;
   }
 
-  return {
-    clear(){ clearTex(getMaterial()); },
-    async applyFileToMaterial(file, { bright } = { bright:true }){
-      const mat = getMaterial();
-      if (!mat) throw new Error('Screen material not found in model.');
-      clearTex(mat);
-      const bmp = await fileToImageBitmap(file);
-      const tex = new THREE.Texture(bmp);
-      tex.flipY = false;
-      tex.needsUpdate = true;
-      tex.colorSpace = THREE.SRGBColorSpace;
+  function loadImage(url){
+    return new Promise((res,rej)=>{
+      const img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>res(img); img.onerror=rej; img.src=url;
+    });
+  }
 
-      mat.map = tex;
-      mat.emissive = new THREE.Color(bright ? 0xffffff : 0x000000);
-      mat.emissiveMap = bright ? tex : null;
-      mat.needsUpdate = true;
-    }
-  };
+  return { applyImageFile, clear };
 }
