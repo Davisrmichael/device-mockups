@@ -64,13 +64,12 @@
     <div class="viewer" id="view"></div>
   </div>
 
-  <!-- Three.js + loaders (r152) -->
-  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://unpkg.com/three@0.152.2/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- Use ES modules (no THREE.OrbitControls global) -->
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-  <script>
-  (async () => {
     // ---- DOM
     const ui = {
       view: document.getElementById('view'),
@@ -80,7 +79,6 @@
       exportBtn: document.getElementById('export'),
       msg: document.getElementById('msg')
     };
-
     const showMsg = (t, isErr=false) => {
       ui.msg.textContent = t || '';
       ui.msg.style.color = isErr ? '#b42318' : '#555';
@@ -98,23 +96,21 @@
     renderer.setSize(720, 720, false);
     ui.view.appendChild(renderer.domElement);
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.target.set(0, 0.42, 0);
 
-    // Light, soft and neutral
     const hemi = new THREE.HemisphereLight(0xffffff, 0xb0b0b0, 0.8);
     scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 0.8);
     dir.position.set(1, 2, 2);
     scene.add(dir);
 
-    // Root for the phone; we can rotate this 180°
     const phoneRoot = new THREE.Group();
     scene.add(phoneRoot);
 
-    // ---- Load the model
-    const loader = new THREE.GLTFLoader();
+    // ---- Load the model (make sure this relative path exists!)
+    const loader = new GLTFLoader();
     const MODEL_PATH = 'iPhone-15-pro-2/iPhone-15.gltf';
 
     let screenMaterial = null;
@@ -123,13 +119,9 @@
       let mat = null;
       root.traverse((obj) => {
         if (obj.isMesh && obj.material) {
-          // Handle arrays and single material
           const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
           for (const m of mats) {
-            if (m && m.name === 'Screen') {
-              mat = m;
-              break;
-            }
+            if (m && m.name === 'Screen') { mat = m; break; }
           }
         }
       });
@@ -142,25 +134,18 @@
       model.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; }});
       phoneRoot.add(model);
 
-      // Start spun 180° around Y so it faces “front-on”
+      // Face front: 180° around Y
       phoneRoot.rotation.y = Math.PI;
 
-      // Find the "Screen" material once
       screenMaterial = findScreenMaterial(model);
-
-      if (!screenMaterial) {
-        showMsg('Screen material not found in model.', true);
-      } else {
-        showMsg('Model ready. Choose an image to apply.');
-      }
+      if (!screenMaterial) showMsg('Screen material not found in model.', true);
+      else showMsg('Model ready. Choose an image to apply.');
     } catch (err) {
       console.error(err);
       showMsg('Failed to load model. Check path iPhone-15-pro-2/iPhone-15.gltf', true);
     }
 
-    // ---- Texture pipeline
-
-    // Draw an image to a square canvas with "cover" fit and equal X/Y scale
+    // ---- Texture helpers
     function drawCoverToCanvas(image, size = 2048) {
       const c = document.createElement('canvas');
       c.width = c.height = size;
@@ -172,8 +157,7 @@
       const imgH = image.naturalHeight || image.height;
       if (!imgW || !imgH) return c;
 
-      // cover fit
-      const scale = Math.max(size / imgW, size / imgH); // equal X/Y scale
+      const scale = Math.max(size / imgW, size / imgH);
       const w = Math.round(imgW * scale);
       const h = Math.round(imgH * scale);
       const x = Math.round((size - w) / 2);
@@ -183,36 +167,27 @@
       return c;
     }
 
-    // Build a three.js texture from an <img> (with GLTF-safe flags)
     function textureFromImage(image) {
       const canvas = drawCoverToCanvas(image);
-      // Convert to data URL before creating three texture (handles any CORS on <img>)
       const url = canvas.toDataURL('image/png');
-      const tex = new THREE.TextureLoader().load(url);
+      const loader = new THREE.TextureLoader();
+      const tex = loader.load(url);
       tex.colorSpace = THREE.SRGBColorSpace;
-      // GLTF materials expect flipY = false
-      tex.flipY = false;
+      tex.flipY = false;     // GLTF-safe
       tex.needsUpdate = true;
       return tex;
     }
 
-    // Apply image to screen material (both base color map & emissive map)
     function applyTextureToScreen(tex) {
-      if (!screenMaterial) {
-        showMsg('Screen material not found in model.', true);
-        return;
-      }
-      // Ensure neutral PBR so image looks right
+      if (!screenMaterial) { showMsg('Screen material not found in model.', true); return; }
+
       if (screenMaterial.isMeshStandardMaterial) {
         screenMaterial.metalness = 0.0;
         screenMaterial.roughness = 0.9;
       }
-
-      // Base color (albedo) — set white base so colors are unchanged
       screenMaterial.color?.set(0xffffff);
       screenMaterial.map = tex;
 
-      // Emissive (optional bright mode)
       if (ui.bright.checked) {
         screenMaterial.emissive?.set(0xffffff);
         screenMaterial.emissiveMap = tex;
@@ -228,9 +203,7 @@
       renderOnce();
     }
 
-    // ---- Handlers
-
-    // Apply from file input
+    // ---- UI
     ui.file.addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0];
       if (!f) return;
@@ -242,10 +215,7 @@
           const tex = textureFromImage(img);
           applyTextureToScreen(tex);
         };
-        img.onerror = (err) => {
-          console.error(err);
-          showMsg('Failed to load image. Try another file.', true);
-        };
+        img.onerror = (err) => { console.error(err); showMsg('Failed to load image.', true); };
         img.crossOrigin = 'anonymous';
         img.src = url;
       } catch (err) {
@@ -254,7 +224,6 @@
       }
     });
 
-    // Bright toggle re-applies current map if present
     ui.bright.addEventListener('change', () => {
       if (!screenMaterial) return;
       const current = screenMaterial.map || screenMaterial.emissiveMap;
@@ -262,7 +231,6 @@
       else showMsg('No image on Screen yet.');
     });
 
-    // Clear maps
     ui.clear.addEventListener('click', () => {
       if (!screenMaterial) return;
       screenMaterial.map = null;
@@ -275,9 +243,7 @@
       renderOnce();
     });
 
-    // Export exactly the 720×720 viewport
     ui.exportBtn.addEventListener('click', async () => {
-      // Ensure the renderer is at 720×720 device pixels (not just CSS)
       const size = 720;
       const prev = renderer.getSize(new THREE.Vector2());
       const prevPR = renderer.getPixelRatio();
@@ -287,7 +253,6 @@
       controls.update();
       renderer.render(scene, camera);
 
-      // Copy to a clean 720×720 2D canvas & download
       const out = document.createElement('canvas');
       out.width = out.height = size;
       const ctx = out.getContext('2d');
@@ -301,18 +266,16 @@
         URL.revokeObjectURL(a.href);
       }, 'image/png');
 
-      // Restore renderer state & render again for UI
       renderer.setPixelRatio(prevPR);
       renderer.setSize(prev.x, prev.y, false);
       renderOnce();
     });
 
-    // ---- Render loop
+    // ---- Render
     function renderOnce() {
       controls.update();
       renderer.render(scene, camera);
     }
-
     function animate() {
       requestAnimationFrame(animate);
       controls.update();
@@ -320,15 +283,13 @@
     }
     animate();
 
-    // Make sure canvas matches CSS size exactly (720×720)
+    // Keep canvas == CSS 720×720
     const resizeObserver = new ResizeObserver(() => {
       const rect = ui.view.getBoundingClientRect();
       renderer.setSize(rect.width, rect.height, false);
       renderOnce();
     });
     resizeObserver.observe(ui.view);
-
-  })();
   </script>
 </body>
 </html>
