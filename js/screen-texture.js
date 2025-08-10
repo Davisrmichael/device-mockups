@@ -1,89 +1,75 @@
 // js/screen-texture.js
-// Handles applying uploaded images to the phone screen material
+import * as THREE from 'three';
 
-export function makeScreenTextureManager(model, screenMaterialName = 'Screen') {
-    let screenMaterial = null;
-    let textureLoader = new THREE.TextureLoader();
-    let emissiveEnabled = true;
+export function makeScreenTextureManager(findMatByName){
+  let lastTex = null;
 
-    // Try to find the screen material in the loaded model
-    function findScreenMaterial() {
-        model.traverse((child) => {
-            if (child.isMesh) {
-                child.material.forEach?.((mat) => {
-                    if (mat.name === screenMaterialName) {
-                        screenMaterial = mat;
-                    }
-                });
-                if (child.material.name === screenMaterialName) {
-                    screenMaterial = child.material;
-                }
-            }
-        });
+  function getScreenMat(){
+    const m = findMatByName('Screen');
+    if(!m) throw new Error('Screen material not found');
+    return m;
+  }
 
-        if (!screenMaterial) {
-            console.error(`Screen material "${screenMaterialName}" not found in model`);
-        }
+  function makeTextureFromImage(img){
+    const tex = img instanceof HTMLCanvasElement ? new THREE.CanvasTexture(img) : new THREE.Texture(img);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.flipY = false;        // GLTF expects +Y up, our data is already correct after onload
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  async function loadImageFromFile(file){
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, err)=>{
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = ()=> ok(im);
+        im.onerror = ()=> err(new Error('Could not read image'));
+        im.src = url;
+      });
+      return img;
+    } finally {
+      // don’t revoke immediately; some browsers upload to GPU lazily
+      setTimeout(()=> URL.revokeObjectURL(url), 5000);
+    }
+  }
+
+  async function applyFileToMaterial(file, {bright=true} = {}){
+    const mat = getScreenMat();
+    const img = await loadImageFromFile(file);
+
+    // No warp: let the model’s UVs do the mapping 1:1
+    const tex = makeTextureFromImage(img);
+
+    // Base color
+    mat.map = tex;
+    if (mat.color) mat.color.set(0xffffff);
+
+    // Emissive
+    if (bright){
+      mat.emissiveMap = tex;
+      if (mat.emissive) mat.emissive.setRGB(1,1,1);
+      mat.emissiveIntensity = 1;
+    } else {
+      mat.emissiveMap = null;
+      if (mat.emissive) mat.emissive.setRGB(0,0,0);
+      mat.emissiveIntensity = 0;
     }
 
-    // Apply the given texture to the screen
-    function applyTexture(image) {
-        if (!screenMaterial) findScreenMaterial();
-        if (!screenMaterial) return;
+    mat.needsUpdate = true;
+    lastTex = tex;
+  }
 
-        let texture = textureLoader.load(
-            image,
-            () => {
-                // Equal X/Y scale
-                texture.wrapS = THREE.ClampToEdgeWrapping;
-                texture.wrapT = THREE.ClampToEdgeWrapping;
+  function clear(){
+    const mat = getScreenMat();
+    mat.map = null;
+    mat.emissiveMap = null;
+    if (mat.emissive) mat.emissive.setRGB(0,0,0);
+    mat.emissiveIntensity = 0;
+    mat.needsUpdate = true;
+    lastTex = null;
+  }
 
-                // Cover mode with auto Y-flip
-                texture.center.set(0.5, 0.5);
-                texture.rotation = Math.PI; // Flip 180° vertically
-
-                // Assign to base map
-                screenMaterial.map = texture;
-                screenMaterial.map.needsUpdate = true;
-
-                // Also apply to emissive if enabled
-                if (emissiveEnabled) {
-                    screenMaterial.emissiveMap = texture;
-                    screenMaterial.emissive = new THREE.Color(0xffffff);
-                    screenMaterial.emissiveIntensity = 1;
-                    screenMaterial.emissiveMap.needsUpdate = true;
-                } else {
-                    screenMaterial.emissiveMap = null;
-                    screenMaterial.emissive.set(0x000000);
-                }
-
-                screenMaterial.needsUpdate = true;
-            },
-            undefined,
-            (err) => {
-                console.error('Error loading texture:', err);
-            }
-        );
-    }
-
-    function clearTexture() {
-        if (!screenMaterial) return;
-        screenMaterial.map = null;
-        screenMaterial.emissiveMap = null;
-        screenMaterial.emissive.set(0x000000);
-        screenMaterial.needsUpdate = true;
-    }
-
-    function setEmissive(enabled) {
-        emissiveEnabled = enabled;
-        if (screenMaterial && screenMaterial.map) {
-            applyTexture(screenMaterial.map.image.src || screenMaterial.map.image.currentSrc);
-        }
-    }
-
-    return {
-        applyTexture,
-        clearTexture,
-        setEmissive
-    };
+  return { applyFileToMaterial, clear };
 }
