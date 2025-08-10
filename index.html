@@ -26,7 +26,6 @@
     model-viewer { width: min(100%, 1100px); height: min(100%, 780px); background:#e6e9ee; border-radius:14px; }
     .toast { position: fixed; inset:auto 18px 18px auto; background:#111; color:#fff; padding:10px 12px; border-radius:8px; opacity:0; transform: translateY(6px); transition: .25s; pointer-events:none; }
     .toast.show { opacity:1; transform: translateY(0); }
-    /* hide the worker canvas but keep it in DOM for toDataURL etc if needed */
     #work { position:absolute; left:-9999px; top:-9999px; }
   </style>
 </head>
@@ -52,7 +51,7 @@
           <span>Pan Y</span>
           <input id="pany" type="range" min="-1" max="1" step="0.01" value="0" />
         </label>
-        <label class="row" title="Lights up the texture on screen">
+        <label class="row">
           <span><input id="bright" type="checkbox" checked /> Bright (emissive)</span>
           <span></span>
         </label>
@@ -70,7 +69,6 @@
     <main>
       <model-viewer id="mv"
         src="iPhone-15-pro-2/iPhone-15.gltf"
-        ar ar-modes="webxr scene-viewer quick-look"
         camera-controls
         exposure="1"
         environment-image="neutral"
@@ -82,11 +80,20 @@
     </main>
   </div>
 
-  <!-- hidden worker canvas used to build the texture -->
   <canvas id="work" width="720" height="720"></canvas>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
+    // --- Guard against stale scripts that set <img>.src = canvas (and bubble an error)
+    window.addEventListener('error', (e) => {
+      const t = e?.target;
+      if (t && t.tagName === 'IMG' && String(t.src).includes('[object%20HTMLCanvasElement]')) {
+        e.stopImmediatePropagation?.();
+        e.preventDefault?.();
+        console.warn('Ignored legacy canvas→img error from stale script.');
+      }
+    }, true);
+
     const mv    = document.getElementById('mv');
     const file  = document.getElementById('file');
     const pick  = document.getElementById('pick');
@@ -100,15 +107,15 @@
     const work  = document.getElementById('work');
     const toast = document.getElementById('toast');
 
-    let objectUrl; // for image File -> object URL lifecycle
-    let lastImage; // HTMLImageElement once loaded
+    let objectUrl = null;
+    let lastImage = null;
 
-    function say(msg, ok=true) {
+    const say = (msg, ok=true) => {
       toast.textContent = msg;
       toast.style.background = ok ? '#111' : '#b42318';
       toast.classList.add('show');
       setTimeout(()=>toast.classList.remove('show'), 1800);
-    }
+    };
 
     pick.addEventListener('click', ()=> file.click());
 
@@ -116,21 +123,19 @@
       const f = e.target.files?.[0];
       if (!f) return;
       try {
-        lastImage = await fileToImage(f);           // load via object URL (no canvas src!)
-        drawAndApply();                              // draw to canvas & push to model
+        lastImage = await fileToImage(f);   // object URL -> Image (never canvas)
+        await drawAndApply();               // draw to canvas & apply to material
       } catch (err) {
         console.error(err);
         say('Failed to load image', false);
       }
     });
 
-    // Redraw when controls change
     [zoom, panX, panY, bright].forEach(el => el.addEventListener('input', () => {
       if (lastImage) drawAndApply();
     }));
 
     front.addEventListener('click', () => {
-      // Face the camera straight-on; keep distance roughly consistent
       mv.cameraOrbit = '0deg 90deg 0%';
       mv.fieldOfView = '30deg';
     });
@@ -158,31 +163,28 @@
       }
     });
 
-    // ---------------- core helpers ----------------
-
     function fileToImage(file) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(file);
       return new Promise((resolve, reject) => {
         const img = new Image();
         img.decoding = 'sync';
+        img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
         img.onerror = reject;
-        img.crossOrigin = 'anonymous';
-        img.src = objectUrl;       // ✅ real URL, never canvas
+        img.src = objectUrl; // ✅ real URL, never a canvas
       });
     }
 
     function drawCoverToCanvas(img, canvas, zoom=1, panX=0, panY=0) {
       const ctx = canvas.getContext('2d');
       const dw = canvas.width, dh = canvas.height;
-      const sw = img.naturalWidth, sh = img.naturalHeight;
+      const sw = img.naturalWidth || img.width;
+      const sh = img.naturalHeight || img.height;
 
-      // uniform scale: cover
-      const s = Math.max(dw/sw, dh/sh) * zoom;
+      const s = Math.max(dw/sw, dh/sh) * zoom; // uniform cover
       const tw = sw * s, th = sh * s;
 
-      // pan within the overflow region; panX/panY in [-1,1]
       const maxX = Math.max(0, tw - dw);
       const maxY = Math.max(0, th - dh);
       const ox = (maxX * 0.5) * panX;
@@ -192,7 +194,7 @@
       ctx.fillStyle = '#000';
       ctx.fillRect(0,0,dw,dh);
 
-      // Flip Y so the GL texture appears upright
+      // Flip Y so it isn't upside down on the GL texture
       ctx.save();
       ctx.translate(0, dh);
       ctx.scale(1, -1);
@@ -215,17 +217,10 @@
 
     async function applyCanvasToScreen() {
       try {
-        // Create a WebGL texture from the canvas
         const tex = await mv.createTexture(work);
-
-        // Find material named "Screen"
         const mat = mv.model?.materials?.find(m => m.name === 'Screen');
         if (!mat) { say('Screen material not found', false); return; }
 
-        // Prefer emissive when "bright" is on
-        const useEmissive = bright.checked;
-
-        // Version-safe setters across model-viewer versions:
         const pmr = mat.pbrMetallicRoughness;
 
         const setBase = () => {
@@ -233,26 +228,22 @@
           if (pmr?.setBaseColorTexture)          return pmr.setBaseColorTexture(tex);
           if (mat?.setBaseColorTexture)          return mat.setBaseColorTexture(tex);
         };
-
         const setEmissive = () => {
           if (mat?.emissiveTexture?.setTexture)  return mat.emissiveTexture.setTexture(tex);
           if (mat?.setEmissiveTexture)           return mat.setEmissiveTexture(tex);
         };
-
-        // Set factors safely if the API supports setters
         const setEmissiveFactor = (v) => {
           if (typeof mat?.setEmissiveFactor === 'function') mat.setEmissiveFactor(v);
           else if ('emissiveFactor' in mat) mat.emissiveFactor = v;
         };
 
-        if (useEmissive && (mat.emissiveTexture || mat.setEmissiveTexture)) {
+        if (bright.checked && (mat.emissiveTexture || mat.setEmissiveTexture)) {
           setEmissive();
           setEmissiveFactor([1,1,1]);
         } else {
           setBase();
         }
 
-        // Nudge PBR so the image reads cleanly (only if setters exist)
         if (pmr?.setMetallicFactor) pmr.setMetallicFactor(0.0);
         if (pmr?.setRoughnessFactor) pmr.setRoughnessFactor(0.9);
 
