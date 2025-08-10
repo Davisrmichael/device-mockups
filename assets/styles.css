@@ -1,0 +1,72 @@
+:root {
+  --bg: #eceff2;
+  --panel: #fff;
+  --text: #1b2430;
+  --muted: #6b7280;
+  --accent: #111827;
+  --border: #e5e7eb;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.panel {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 20px 18px;
+  overflow: auto;
+}
+
+h1 { margin: 0 0 16px; font-size: 18px; }
+
+.label { display: block; font-weight: 600; margin: 12px 0 6px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+
+button, input[type="file"] {
+  font: inherit;
+}
+
+button {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { background: #f3f4f6; }
+
+.note { color: var(--muted); margin: 8px 0 0; }
+.msg { color: #b91c1c; min-height: 1.2em; margin: 8px 0 0; }
+
+.stage {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.viewer {
+  width: 720px;
+  height: 720px;
+  background: #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+/* Three.js canvas fills viewer */
+.viewer canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
